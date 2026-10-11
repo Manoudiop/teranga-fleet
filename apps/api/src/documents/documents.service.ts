@@ -1,7 +1,6 @@
-import { Injectable, Logger, StreamableFile } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getExpiryStatus } from '@teranga-fleet/shared';
-import { randomUUID } from 'node:crypto';
 import { toDate } from '../common/dates';
 import { badRequest, notFound } from '../common/errors/app.exception';
 import { expiryDateFilter } from '../common/expiry-filter';
@@ -9,8 +8,7 @@ import { paginated, skipTake } from '../common/pagination';
 import type { Env } from '../config/env.validation';
 import type { Document, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { assertAllowedFile } from '../storage/file-types';
-import { StorageService } from '../storage/storage.service';
+import { FileStoreService } from '../storage/file-store.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import type { CreateDocumentDto, DocumentQueryDto, UpdateDocumentDto } from './dto/document.dto';
 
@@ -18,12 +16,11 @@ const vehicleSelect = { select: { id: true, immatriculation: true, marque: true,
 
 @Injectable()
 export class DocumentsService {
-  private readonly logger = new Logger(DocumentsService.name);
   private readonly thresholdDays: number;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
+    private readonly files: FileStoreService,
     private readonly vehicles: VehiclesService,
     config: ConfigService<Env, true>,
   ) {
@@ -54,7 +51,7 @@ export class DocumentsService {
       });
       return this.toResponse(document);
     } catch (error) {
-      if (key) await this.deleteQuietly(key);
+      if (key) await this.files.deleteQuietly(key);
       throw error;
     }
   }
@@ -118,10 +115,10 @@ export class DocumentsService {
         include: { vehicle: vehicleSelect },
       });
       // Le nouveau fichier est enregistré : l'ancien peut être supprimé.
-      if (key && current.fichierUrl) await this.deleteQuietly(current.fichierUrl);
+      if (key && current.fichierUrl) await this.files.deleteQuietly(current.fichierUrl);
       return this.toResponse(document);
     } catch (error) {
-      if (key) await this.deleteQuietly(key);
+      if (key) await this.files.deleteQuietly(key);
       throw error;
     }
   }
@@ -129,29 +126,16 @@ export class DocumentsService {
   async remove(companyId: string, id: string) {
     const document = await this.getOwned(companyId, id);
     await this.prisma.document.delete({ where: { id } });
-    if (document.fichierUrl) await this.deleteQuietly(document.fichierUrl);
+    if (document.fichierUrl) await this.files.deleteQuietly(document.fichierUrl);
   }
 
   async download(companyId: string, id: string): Promise<StreamableFile> {
     const document = await this.getOwned(companyId, id, true);
     if (!document.fichierUrl) throw notFound("Ce document n'a pas de fichier joint");
-    const file = await this.storage.get(document.fichierUrl);
-    const extension = document.fichierUrl.split('.').pop();
-    const filename = `${document.type.toLowerCase()}-${document.vehicle.immatriculation}.${extension}`;
-    return new StreamableFile(file.stream, {
-      type: file.contentType,
-      length: file.size,
-      disposition: `inline; filename="${filename.replace(/[^\w.-]/g, '_')}"`,
-    });
-  }
-
-  /** Supprime des fichiers du stockage sans faire échouer l'opération appelante. */
-  async deleteQuietly(key: string) {
-    try {
-      await this.storage.delete(key);
-    } catch (error) {
-      this.logger.warn(`Fichier ${key} non supprimé du stockage : ${String(error)}`);
-    }
+    return this.files.download(
+      document.fichierUrl,
+      `${document.type.toLowerCase()}-${document.vehicle.immatriculation}`,
+    );
   }
 
   private async getOwned(companyId: string, id: string): Promise<Document>;
@@ -169,11 +153,8 @@ export class DocumentsService {
     return document;
   }
 
-  private async store(companyId: string, file: Express.Multer.File): Promise<string> {
-    const { kind, contentType } = assertAllowedFile(file, ['pdf', 'jpg', 'png']);
-    const key = `companies/${companyId}/documents/${randomUUID()}.${kind}`;
-    await this.storage.put(key, file.buffer, contentType);
-    return key;
+  private store(companyId: string, file: Express.Multer.File): Promise<string> {
+    return this.files.store(companyId, 'documents', file, ['pdf', 'jpg', 'png']);
   }
 
   private assertDates(dateEmission: string | undefined, dateExpiration: string) {

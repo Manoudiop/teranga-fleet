@@ -4,6 +4,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import type { Env } from '../config/env.validation';
 import { LocalStorageService } from './local-storage.service';
 import { S3StorageService } from './s3-storage.service';
+import { FileStoreService } from './file-store.service';
 import { StorageService } from './storage.service';
 
 const UploadsModule = MulterModule.registerAsync({
@@ -23,6 +24,7 @@ const UploadsModule = MulterModule.registerAsync({
 @Module({
   imports: [UploadsModule],
   providers: [
+    FileStoreService,
     {
       provide: StorageService,
       inject: [ConfigService],
@@ -38,6 +40,6 @@ const UploadsModule = MulterModule.registerAsync({
           : new LocalStorageService(config.get('UPLOAD_DIR', { infer: true })),
     },
   ],
-  exports: [StorageService, UploadsModule],
+  exports: [StorageService, FileStoreService, UploadsModule],
 })
 export class StorageModule {}

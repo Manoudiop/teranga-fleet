@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import { AppException, badRequest, forbidden } from '../common/errors/app.exception';
 import { paginated, skipTake, type PaginationQueryDto } from '../common/pagination';
+import { assignedVehicleOf } from '../assignments/assigned-vehicle';
 import { PrismaService } from '../prisma/prisma.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import type { CreateMileageDto } from './dto/mileage.dto';
@@ -25,7 +26,13 @@ export class MileageService {
   async create(user: AuthUser, companyId: string, dto: CreateMileageDto) {
     const isDriver = user.role === 'CHAUFFEUR';
     const vehicleId = isDriver
-      ? await this.assignedVehicleOf(user, companyId, dto.vehicleId)
+      ? await assignedVehicleOf(
+          this.prisma,
+          user,
+          companyId,
+          dto.vehicleId,
+          'Vous ne pouvez saisir que le kilométrage du véhicule qui vous est affecté',
+        )
       : dto.vehicleId;
     if (!vehicleId) throw badRequest('Indiquez le véhicule concerné (vehicleId)');
 
@@ -100,25 +107,5 @@ export class MileageService {
       this.prisma.mileageLog.count({ where }),
     ]);
     return paginated(items, total, query);
-  }
-
-  /** Véhicule affecté au chauffeur ; refuse tout autre véhicule. */
-  private async assignedVehicleOf(user: AuthUser, companyId: string, requested?: string) {
-    if (!user.driverId) throw forbidden("Ce compte n'est lié à aucune fiche chauffeur");
-    const assignment = await this.prisma.assignment.findFirst({
-      where: { companyId, driverId: user.driverId, dateFin: null },
-      select: { vehicleId: true },
-    });
-    if (!assignment) {
-      throw new AppException(
-        HttpStatus.CONFLICT,
-        'NO_ACTIVE_ASSIGNMENT',
-        'Aucun véhicule ne vous est affecté : contactez votre gestionnaire',
-      );
-    }
-    if (requested && requested !== assignment.vehicleId) {
-      throw forbidden('Vous ne pouvez saisir que le kilométrage du véhicule qui vous est affecté');
-    }
-    return assignment.vehicleId;
   }
 }
