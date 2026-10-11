@@ -1,0 +1,21 @@
+{
+  "name": "@teranga-fleet/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Types et constantes partagés entre l'API, le web et le mobile",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}

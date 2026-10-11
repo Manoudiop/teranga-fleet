@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+**/dist
+**/.next
+**/.expo
+**/coverage
+**/next-env.d.ts
+**/expo-env.d.ts
+apps/api/uploads
+apps/web/AGENTS.md

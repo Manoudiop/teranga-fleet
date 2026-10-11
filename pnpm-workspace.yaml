@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Scripts d'installation des dépendances : ces paquets livrent des binaires
+# précompilés, leur postinstall est inutile.
+allowBuilds:
+  '@parcel/watcher': false
+  unrs-resolver: false
+
+# expo-router embarque Radix, qui installe @types/react-dom@19.3 alors que
+# Expo 57 fixe @types/react ~19.2. Types uniquement, sans impact à l'exécution.
+peerDependencyRules:
+  allowedVersions:
+    '@types/react-dom>@types/react': '19.2'

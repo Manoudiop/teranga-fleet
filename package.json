@@ -1,0 +1,25 @@
+{
+  "name": "teranga-fleet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SaaS multi-tenant de gestion de flotte de véhicules (API NestJS, dashboard Next.js, app chauffeur Expo)",
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "postinstall": "pnpm --filter @teranga-fleet/shared build",
+    "dev:api": "pnpm --filter @teranga-fleet/api start:dev",
+    "dev:web": "pnpm --filter @teranga-fleet/web dev",
+    "dev:mobile": "pnpm --filter @teranga-fleet/mobile start",
+    "build": "pnpm -r --filter !@teranga-fleet/mobile build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}

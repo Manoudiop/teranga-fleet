@@ -1,0 +1,115 @@
+# Teranga Fleet
+
+SaaS multi-tenant de gestion de flotte de véhicules, conçu pour le marché sénégalais et
+ouest-africain : entreprises disposant de véhicules de service, transporteurs, loueurs, PME/PMI,
+ONG et sociétés de livraison.
+
+> **État d'avancement : phase 1 (initialisation du monorepo).** Les modules métier (véhicules,
+> chauffeurs, documents, maintenance, kilométrage, affectations, incidents, alertes) arrivent
+> dans les phases suivantes. Ce README est complété à chaque étape.
+
+## Architecture
+
+Monorepo [pnpm workspaces](https://pnpm.io/workspaces) :
+
+```
+apps/
+  api/        API REST NestJS 11 (TypeScript, CommonJS, Jest)
+  web/        Dashboard gestionnaire / administrateur Next.js 16 (App Router, Tailwind CSS 4)
+  mobile/     Application chauffeur React Native / Expo SDK 57 (Expo Router)
+packages/
+  shared/     Types et constantes partagés (rôles, statuts, format d'erreur, pagination)
+```
+
+- Chaque application est indépendante (ses propres dépendances, scripts, configuration ESLint).
+- `@teranga-fleet/shared` est compilé en CommonJS dans `packages/shared/dist`, ce qui le rend
+  consommable tel quel par Node (API), Next.js et Metro. Il est compilé automatiquement après
+  chaque `pnpm install` (script `postinstall`).
+- Le multi-tenant est une règle de conception : le `companyId` est toujours dérivé de
+  l'utilisateur authentifié (JWT), jamais d'une valeur envoyée par le client.
+
+### Choix techniques
+
+| Sujet             | Choix                                      | Raison                                                                                                             |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Version de NestJS | 11 (et non 12)                             | Nest 12 ne fonctionne qu'en ESM, ce qui complique Jest, demandé par le cahier des charges. Nest 11 reste maintenu. |
+| TypeScript        | 6.0                                        | TypeScript 7 n'est pas encore pris en charge par ts-jest ni typescript-eslint.                                     |
+| ESLint            | 9 (flat config)                            | Version prise en charge par les configurations Next.js et Expo.                                                    |
+| Formatage         | Prettier, configuration unique à la racine |                                                                                                                    |
+
+## Prérequis
+
+- Node.js ≥ 20.19 (22 LTS recommandé, voir `.nvmrc`)
+- pnpm 11 (`corepack enable` ou `npm i -g pnpm`)
+- PostgreSQL 16+ (à partir de la phase 2)
+- Pour le mobile : l'application Expo Go sur un téléphone, ou un émulateur Android / simulateur iOS
+
+## Installation
+
+```bash
+pnpm install
+```
+
+Puis copier les fichiers d'environnement et les adapter :
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+cp apps/mobile/.env.example apps/mobile/.env
+```
+
+## Variables d'environnement
+
+Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être commité.
+
+### API (`apps/api/.env`)
+
+| Variable                                                                  | Description                                                                     |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                                | `development`, `test` ou `production`                                           |
+| `PORT`                                                                    | Port HTTP de l'API (3000 par défaut)                                            |
+| `CORS_ORIGINS`                                                            | Origines autorisées, séparées par des virgules. Obligatoire en production.      |
+| `DATABASE_URL`                                                            | Chaîne de connexion PostgreSQL (phase 2)                                        |
+| `JWT_SECRET` / `JWT_EXPIRES_IN`                                           | Signature et durée de validité des tokens (phase 3)                             |
+| `STORAGE_DRIVER`                                                          | `local` (développement) ou `s3` (production) (phase 6)                          |
+| `UPLOAD_DIR` / `UPLOAD_MAX_SIZE_MB`                                       | Dossier de stockage local et taille maximale des fichiers                       |
+| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` | Stockage S3-compatible                                                          |
+| `ALERT_THRESHOLD_DAYS`                                                    | Seuil des alertes « expire bientôt » et « entretien à prévoir » (30 par défaut) |
+
+L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
+
+### Web (`apps/web/.env.local`)
+
+| Variable              | Description                         |
+| --------------------- | ----------------------------------- |
+| `NEXT_PUBLIC_API_URL` | URL de l'API, exposée au navigateur |
+
+### Mobile (`apps/mobile/.env`)
+
+| Variable              | Description                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL` | URL de l'API vue depuis l'appareil (`http://10.0.2.2:3000` pour l'émulateur Android, IP locale du PC pour un téléphone physique) |
+
+## Lancement en développement
+
+```bash
+pnpm dev:api      # API sur http://localhost:3000 (GET /health)
+pnpm dev:web      # Dashboard sur http://localhost:3001
+pnpm dev:mobile   # Serveur Expo : scanner le QR code avec Expo Go
+```
+
+## Scripts de la racine
+
+| Script                                      | Effet                                        |
+| ------------------------------------------- | -------------------------------------------- |
+| `pnpm build`                                | Compile `shared`, l'API et le web            |
+| `pnpm lint`                                 | ESLint sur toutes les applications           |
+| `pnpm typecheck`                            | Vérification TypeScript sur tout le monorepo |
+| `pnpm test`                                 | Tests unitaires (Jest)                       |
+| `pnpm --filter @teranga-fleet/api test:e2e` | Tests end-to-end de l'API                    |
+| `pnpm format` / `pnpm format:check`         | Formatage Prettier                           |
+
+## À venir
+
+Les sections suivantes seront documentées au fil des phases : PostgreSQL et Prisma (migrations,
+seed), comptes de développement, Swagger, endpoints principaux.

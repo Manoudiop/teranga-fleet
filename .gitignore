@@ -1,0 +1,49 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+build/
+.next/
+out/
+.expo/
+web-build/
+*.tsbuildinfo
+next-env.d.ts
+expo-env.d.ts
+
+# Projets natifs générés par Expo prebuild
+apps/mobile/ios/
+apps/mobile/android/
+
+# Variables d'environnement : seuls les .env.example sont versionnés
+.env
+.env.*
+!.env.example
+
+# Stockage local des fichiers uploadés (dev)
+apps/api/uploads/
+
+# Tests
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+
+# Expo / Metro
+.metro-health-check*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
