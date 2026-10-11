@@ -8,6 +8,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Menu,
   Siren,
   Smartphone,
@@ -34,6 +35,7 @@ interface NavItem {
 const MANAGER_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/vehicles', label: 'Véhicules', icon: Truck },
+  { href: '/map', label: 'Carte', icon: MapPin },
   { href: '/drivers', label: 'Chauffeurs', icon: Users },
   { href: '/assignments', label: 'Affectations', icon: ArrowLeftRight },
   { href: '/documents', label: 'Documents', icon: FileText },

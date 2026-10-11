@@ -383,6 +383,45 @@ async function main() {
     ].map((incident) => ({ ...incident, companyId })),
   });
 
+  // --- Positions GPS (chauffeurs en service) --------------------------------------------
+  // Hilux : trajet Pikine → Plateau sur la dernière heure, dernier point il y a 2 min.
+  const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
+  const hiluxRoute: [number, number][] = [
+    [14.7545, -17.3965], // Pikine
+    [14.7489, -17.4123],
+    [14.7398, -17.4302], // Patte d'Oie
+    [14.7301, -17.4458],
+    [14.7212, -17.4561], // Liberté 6
+    [14.7103, -17.4612],
+    [14.6995, -17.4598], // Fann
+    [14.6898, -17.4521],
+    [14.6812, -17.4475],
+    [14.6732, -17.4392], // Plateau
+  ];
+  await prisma.vehicleLocation.createMany({
+    data: [
+      ...hiluxRoute.map(([latitude, longitude], i) => ({
+        vehicleId: hilux.id,
+        driverId: moussa.id,
+        latitude,
+        longitude,
+        accuracy: 12,
+        speed: i === hiluxRoute.length - 1 ? 0 : 9 + (i % 3) * 2,
+        recordedAt: minutesAgo(2 + (hiluxRoute.length - 1 - i) * 6),
+      })),
+      // Master : dernière position il y a 3 h sur la route de Rufisque.
+      {
+        vehicleId: master.id,
+        driverId: aminata.id,
+        latitude: 14.7158,
+        longitude: -17.2741,
+        accuracy: 20,
+        speed: 0,
+        recordedAt: minutesAgo(180),
+      },
+    ].map((location) => ({ ...location, companyId })),
+  });
+
   const counts = {
     entreprises: await prisma.company.count({ where: { id: companyId } }),
     utilisateurs: await prisma.user.count({
@@ -395,6 +434,7 @@ async function main() {
     affectations: await prisma.assignment.count({ where: { companyId } }),
     releves: await prisma.mileageLog.count({ where: { companyId } }),
     incidents: await prisma.incident.count({ where: { companyId } }),
+    positions: await prisma.vehicleLocation.count({ where: { companyId } }),
   };
 
   console.log('\nSeed terminé :', counts);

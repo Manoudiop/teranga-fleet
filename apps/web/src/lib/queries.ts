@@ -17,6 +17,7 @@ export const keys = {
   incidents: ['incidents'] as const,
   alerts: ['alerts'] as const,
   dashboard: ['dashboard'] as const,
+  locations: ['locations'] as const,
 };
 
 /**

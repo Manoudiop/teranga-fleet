@@ -23,6 +23,7 @@ import { IncidentModal, NewIncidentModal } from '@/components/modals/incident-mo
 import { MaintenanceModal } from '@/components/modals/maintenance-modal';
 import { MileageModal } from '@/components/modals/mileage-modal';
 import { EmptyState, ErrorState, FormError, Spinner } from '@/components/ui/feedback';
+import { VehicleLocation } from '@/components/vehicle-location';
 import { ConfirmModal } from '@/components/ui/modal';
 import {
   Badge,
@@ -205,6 +206,7 @@ export default function VehiclePage() {
       </div>
 
       <div className="mt-6 space-y-6">
+        <VehicleLocation vehicleId={id} />
         <DocumentsSection
           vehicleId={id}
           onAdd={() => setModal({ kind: 'document' })}

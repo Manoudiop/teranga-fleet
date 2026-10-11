@@ -171,9 +171,11 @@ export class LocationsService implements OnModuleInit, OnModuleDestroy {
         recordedAt: true,
         driverId: true,
       },
-      orderBy: { recordedAt: 'asc' },
+      // Les plus récents d'abord : en cas de troncature, on garde la fin du trajet
+      // (dont la dernière position), puis on remet dans l'ordre chronologique.
+      orderBy: { recordedAt: 'desc' },
       take: MAX_TRACK_POINTS,
     });
-    return { from, to, truncated: points.length === MAX_TRACK_POINTS, points };
+    return { from, to, truncated: points.length === MAX_TRACK_POINTS, points: points.reverse() };
   }
 }

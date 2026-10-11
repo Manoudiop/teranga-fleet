@@ -4,9 +4,9 @@ SaaS multi-tenant de gestion de flotte de véhicules, conçu pour le marché sé
 ouest-africain : entreprises disposant de véhicules de service, transporteurs, loueurs, PME/PMI,
 ONG et sociétés de livraison.
 
-> **État d'avancement : backend complet (phases 1 à 13).** API REST multi-tenant testée
-> (unitaires + e2e sur PostgreSQL). Le dashboard web (étape 4) et l'application mobile
-> (étape 5) restent à réaliser. Ce README est complété à chaque étape.
+> **État d'avancement : MVP complet.** API REST multi-tenant testée (unitaires + e2e sur
+> PostgreSQL), dashboard web des gestionnaires, application mobile des chauffeurs avec
+> géolocalisation des véhicules.
 
 ## Architecture
 
@@ -159,6 +159,8 @@ Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être c
 | `MAINTENANCE_KM_MARGIN`                                                   | Marge en km avant une échéance d'entretien kilométrique (1000 par défaut)       |
 | `AUTH_RATE_LIMIT`                                                         | Tentatives de login / inscription par minute et par IP (10 par défaut)          |
 | `SWAGGER_ENABLED`                                                         | Active la documentation sur /docs (par défaut : hors production uniquement)     |
+| `LOCATION_RETENTION_DAYS`                                                 | Conservation des positions GPS, en jours (90 par défaut)                        |
+| `TRUST_PROXY`                                                             | Proxies de confiance pour lire l'IP réelle du client (`loopback` par défaut)    |
 
 L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
 
@@ -195,6 +197,68 @@ pnpm dev:mobile   # Serveur Expo : scanner le QR code avec Expo Go
 | `pnpm --filter @teranga-fleet/api test:e2e:cov` | Tests end-to-end avec rapport de couverture            |
 | `pnpm format` / `pnpm format:check`             | Formatage Prettier                                     |
 
+## Application mobile chauffeur
+
+Application Expo (SDK 57, Expo Router) réservée au rôle CHAUFFEUR : un gestionnaire qui s'y
+connecte est refusé avec un message l'orientant vers le dashboard web.
+
+**Écrans** : `/login`, `/home` (véhicule affecté, service, alertes importantes), `/my-vehicle`,
+`/mileage` (validation identique à l'API : jamais inférieur au compteur, pas de date future),
+`/incidents` et `/incident-new` (type, gravité, description, photo prise ou choisie dans la
+galerie), `/history` (relevés du chauffeur), `/profile` (permis, service, déconnexion).
+
+**Session** : le JWT est stocké dans le stockage sécurisé du téléphone (Keychain iOS / Keystore
+Android, via `expo-secure-store`), restauré au lancement, et la session se ferme à son expiration
+ou sur un 401 de l'API. Les écrans sont protégés par `Stack.Protected` (Expo Router).
+
+**Tester sur un téléphone** :
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env   # EXPO_PUBLIC_API_URL = IP locale du PC, ex. http://192.168.1.20:4000
+pnpm dev:mobile                                # scanner le QR code avec Expo Go
+```
+
+Le téléphone et le PC doivent être sur le même réseau. Expo Go suffit pour tout tester, sauf la
+localisation en arrière-plan (voir ci-dessous), qui demande un build de développement :
+
+```bash
+cd apps/mobile
+npx eas build --profile development --platform android   # compte Expo (gratuit) requis
+```
+
+Identifiants applicatifs : `sn.terangafleet.chauffeur` (Android et iOS), à adapter avant publication.
+
+## Géolocalisation des véhicules
+
+Les véhicules sont localisés grâce au téléphone de leur chauffeur, **uniquement pendant son
+service**.
+
+1. Le chauffeur appuie sur « Passer en service ». La première fois, un écran explique ce qui est
+   collecté, quand, qui y a accès et pour combien de temps ; il doit l'accepter explicitement.
+2. Le téléphone demande l'autorisation de localisation. Avec « Toujours autoriser » (build natif),
+   une tâche système (`expo-location` + `expo-task-manager`) relève la position environ chaque
+   minute ou tous les 100 m, même écran éteint ; Android affiche une notification permanente
+   pendant le service. Dans Expo Go, ou sans cette autorisation, le suivi fonctionne tant que
+   l'application est ouverte.
+3. Les points sont mis en file sur le téléphone puis envoyés par lots (`POST /locations`) : rien
+   n'est perdu dans une zone sans réseau. Les points renvoyés deux fois sont ignorés.
+4. Le suivi s'arrête quand le chauffeur termine son service, se déconnecte, retire son accord
+   depuis son profil, ou quand son affectation est terminée.
+
+Côté gestionnaire : page **Carte** (dernière position de chaque véhicule, rafraîchie chaque
+minute, couleur selon la fraîcheur) et section **Localisation** de la fiche véhicule (tracé sur
+24 h, 3 jours ou 7 jours). Fonds de carte OpenStreetMap via Leaflet.
+
+**Données personnelles.** La position d'un chauffeur est une donnée personnelle (loi sénégalaise
+n° 2008-12, contrôlée par la CDP). Garde-fous en place : collecte limitée au service et après
+consentement, accès réservé aux gestionnaires de l'entreprise, suppression automatique après
+`LOCATION_RETENTION_DAYS` jours (90 par défaut). Avant la mise en production, l'entreprise
+cliente doit informer ses chauffeurs et effectuer les formalités auprès de la CDP.
+
+**En production**, les tuiles `tile.openstreetmap.org` ne sont pas prévues pour un usage
+commercial intensif : utiliser un fournisseur de tuiles (MapTiler, Stadia, etc.) ou un serveur
+de tuiles hébergé.
+
 ## Dashboard web
 
 Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://localhost:3001.
@@ -208,7 +272,7 @@ Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://loca
 - `src/proxy.ts` redirige vers `/login` toute page visitée sans session ; un 401 de l'API efface le
   cookie et renvoie à la connexion.
 
-**Pages** : `/login`, `/register`, `/dashboard`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
+**Pages** : `/login`, `/register`, `/dashboard`, `/map`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
 `/drivers` (+ `/new`, `/[id]`), `/assignments`, `/documents`, `/maintenance`, `/incidents`,
 `/alerts`, et `/admin` pour le rôle ADMIN. Un chauffeur qui se connecte au web est invité à
 utiliser l'application mobile.
@@ -255,6 +319,8 @@ Une ressource d'une autre entreprise renvoie toujours **404**, comme une ressour
 | Affectations | `POST/GET /assignments`, `GET/PATCH /assignments/:id`, `POST /assignments/:id/end`                                        | gestionnaire            |
 | Kilométrage  | `POST /mileage`                                                                                                           | chauffeur, gestionnaire |
 |              | `GET /vehicles/:vehicleId/mileage`                                                                                        | gestionnaire            |
+| Localisation | `POST /locations` (lot de positions du véhicule affecté)                                                                  | chauffeur               |
+|              | `GET /locations/latest`, `GET /vehicles/:vehicleId/locations?from=&to=`                                                   | gestionnaire            |
 | Incidents    | `POST/GET /incidents`, `GET /incidents/:id`, `POST/GET /incidents/:id/photo`                                              | chauffeur, gestionnaire |
 |              | `PATCH /incidents/:id` (statut, gravité, notes, clôture)                                                                  | gestionnaire            |
 | Alertes      | `GET /alerts` — filtres `vehicleId`, `severity`, `type`                                                                   | gestionnaire, chauffeur |

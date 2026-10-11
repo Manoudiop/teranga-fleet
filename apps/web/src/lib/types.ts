@@ -143,3 +143,30 @@ export interface MaintenanceCosts {
   months: { month: string; total: number; count: number }[];
   total: number;
 }
+
+export interface LatestLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  /** Vitesse en m/s. */
+  speed: number | null;
+  heading: number | null;
+  recordedAt: string;
+  vehicle: VehicleRef & { statut: VehicleStatus };
+  driver: PersonRef | null;
+}
+
+export interface TrackPoint {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  speed: number | null;
+  recordedAt: string;
+}
+
+export interface Track {
+  from: string;
+  to: string;
+  truncated: boolean;
+  points: TrackPoint[];
+}
