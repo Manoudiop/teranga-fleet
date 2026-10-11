@@ -31,6 +31,19 @@ async function bootstrap() {
         )
         .setVersion('0.1.0')
         .addBearerAuth()
+        // Ordre d'affichage des sections dans Swagger UI.
+        .addTag('Auth', 'Inscription, connexion, profil')
+        .addTag('Vehicles', 'Véhicules de la flotte')
+        .addTag('Drivers', 'Chauffeurs et comptes mobiles')
+        .addTag('Documents', 'Carte grise, assurance, visite technique, vignette')
+        .addTag('Maintenance', 'Entretiens et échéances')
+        .addTag('Assignments', 'Affectations chauffeur / véhicule')
+        .addTag('Mileage', 'Relevés kilométriques')
+        .addTag('Incidents', 'Signalements et traitement')
+        .addTag('Alerts', 'Alertes de la flotte')
+        .addTag('Dashboard', 'Indicateurs du gestionnaire')
+        .addTag('Admin', 'Administration de la plateforme (rôle ADMIN)')
+        .addTag('Health', "État de l'API")
         .build(),
     );
     SwaggerModule.setup('docs', app, document, {

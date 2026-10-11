@@ -4,9 +4,9 @@ SaaS multi-tenant de gestion de flotte de véhicules, conçu pour le marché sé
 ouest-africain : entreprises disposant de véhicules de service, transporteurs, loueurs, PME/PMI,
 ONG et sociétés de livraison.
 
-> **État d'avancement : phase 2 (base de données).** Monorepo, schéma PostgreSQL, migration
-> initiale et seed de développement en place. Les modules métier de l'API (authentification,
-> véhicules, chauffeurs...) arrivent à la phase 3. Ce README est complété à chaque étape.
+> **État d'avancement : backend complet (phases 1 à 13).** API REST multi-tenant testée
+> (unitaires + e2e sur PostgreSQL). Le dashboard web (étape 4) et l'application mobile
+> (étape 5) restent à réaliser. Ce README est complété à chaque étape.
 
 ## Architecture
 
@@ -156,6 +156,9 @@ Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être c
 | `UPLOAD_DIR` / `UPLOAD_MAX_SIZE_MB`                                       | Dossier de stockage local et taille maximale des fichiers                       |
 | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` | Stockage S3-compatible                                                          |
 | `ALERT_THRESHOLD_DAYS`                                                    | Seuil des alertes « expire bientôt » et « entretien à prévoir » (30 par défaut) |
+| `MAINTENANCE_KM_MARGIN`                                                   | Marge en km avant une échéance d'entretien kilométrique (1000 par défaut)       |
+| `AUTH_RATE_LIMIT`                                                         | Tentatives de login / inscription par minute et par IP (10 par défaut)          |
+| `SWAGGER_ENABLED`                                                         | Active la documentation sur /docs (par défaut : hors production uniquement)     |
 
 L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
 
@@ -182,15 +185,97 @@ pnpm dev:mobile   # Serveur Expo : scanner le QR code avec Expo Go
 
 ## Scripts de la racine
 
-| Script                                      | Effet                                                  |
-| ------------------------------------------- | ------------------------------------------------------ |
-| `pnpm build`                                | Compile `shared`, l'API et le web                      |
-| `pnpm lint`                                 | ESLint sur toutes les applications                     |
-| `pnpm typecheck`                            | Vérification TypeScript sur tout le monorepo           |
-| `pnpm test`                                 | Tests unitaires (Jest)                                 |
-| `pnpm --filter @teranga-fleet/api test:e2e` | Tests end-to-end de l'API (PostgreSQL doit être lancé) |
-| `pnpm format` / `pnpm format:check`         | Formatage Prettier                                     |
+| Script                                          | Effet                                                  |
+| ----------------------------------------------- | ------------------------------------------------------ |
+| `pnpm build`                                    | Compile `shared`, l'API et le web                      |
+| `pnpm lint`                                     | ESLint sur toutes les applications                     |
+| `pnpm typecheck`                                | Vérification TypeScript sur tout le monorepo           |
+| `pnpm test`                                     | Tests unitaires (Jest)                                 |
+| `pnpm --filter @teranga-fleet/api test:e2e`     | Tests end-to-end de l'API (PostgreSQL doit être lancé) |
+| `pnpm --filter @teranga-fleet/api test:e2e:cov` | Tests end-to-end avec rapport de couverture            |
+| `pnpm format` / `pnpm format:check`             | Formatage Prettier                                     |
 
-## À venir
+## API
 
-Les sections suivantes seront documentées au fil des phases : Swagger et endpoints principaux.
+### Swagger
+
+Documentation interactive sur **http://localhost:4000/docs** (JSON : `/docs-json`). Se
+connecter via `POST /auth/login`, puis cliquer sur « Authorize » et coller le token. Swagger est
+actif par défaut hors production ; en production, l'activer explicitement avec
+`SWAGGER_ENABLED=true`.
+
+### Authentification et rôles
+
+Toutes les routes exigent un JWT (`Authorization: Bearer <token>`), sauf `/health`,
+`/auth/login` et `/auth/register-company` (limitées à `AUTH_RATE_LIMIT` tentatives par minute et
+par IP). Chaque route déclare les rôles autorisés ; une route qui n'en déclare pas est refusée à
+tous (sécurité par défaut).
+
+| Rôle         | Accès                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------- |
+| GESTIONNAIRE | Toute la flotte de son entreprise                                                     |
+| CHAUFFEUR    | Son profil, son véhicule affecté, ses relevés et ses incidents, ses alertes           |
+| ADMIN        | Statistiques globales et entreprises (`/admin/*`) ; aucun accès aux données de flotte |
+
+Une ressource d'une autre entreprise renvoie toujours **404**, comme une ressource inexistante.
+
+### Endpoints principaux
+
+| Domaine      | Endpoints                                                                                                                 | Rôles                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Auth         | `POST /auth/register-company`, `POST /auth/login`, `GET /auth/me`                                                         | public / tous           |
+| Véhicules    | `POST/GET /vehicles`, `GET/PATCH/DELETE /vehicles/:id` — filtres `search`, `status`, `alerts`, pagination `page`/`limit`  | gestionnaire            |
+| Chauffeurs   | `POST/GET /drivers`, `GET/PATCH/DELETE /drivers/:id`, `PUT /drivers/:id/account` — filtres `search`, `statut`, `permis`   | gestionnaire            |
+|              | `GET /drivers/me`, `GET /drivers/me/mileage`                                                                              | chauffeur               |
+| Documents    | `POST/GET /vehicles/:vehicleId/documents`, `GET /documents`, `GET/PATCH/DELETE /documents/:id`, `GET /documents/:id/file` | gestionnaire            |
+| Maintenance  | `POST/GET /maintenance`, `GET /maintenance/due`, `GET/PATCH/DELETE /maintenance/:id`                                      | gestionnaire            |
+| Affectations | `POST/GET /assignments`, `GET/PATCH /assignments/:id`, `POST /assignments/:id/end`                                        | gestionnaire            |
+| Kilométrage  | `POST /mileage`                                                                                                           | chauffeur, gestionnaire |
+|              | `GET /vehicles/:vehicleId/mileage`                                                                                        | gestionnaire            |
+| Incidents    | `POST/GET /incidents`, `GET /incidents/:id`, `POST/GET /incidents/:id/photo`                                              | chauffeur, gestionnaire |
+|              | `PATCH /incidents/:id` (statut, gravité, notes, clôture)                                                                  | gestionnaire            |
+| Alertes      | `GET /alerts` — filtres `vehicleId`, `severity`, `type`                                                                   | gestionnaire, chauffeur |
+| Dashboard    | `GET /dashboard/summary`, `GET /dashboard/maintenance-costs?months=6`                                                     | gestionnaire            |
+| Admin        | `GET /admin/stats`, `GET /admin/companies`, `GET /admin/companies/:id`                                                    | admin                   |
+
+Uploads (`multipart/form-data`) : champ `fichier` pour les documents (PDF, JPG, PNG), champ
+`photo` pour les incidents (JPG, PNG). Le type réel est vérifié par la signature du fichier, la
+taille est limitée par `UPLOAD_MAX_SIZE_MB`, et les fichiers ne sont jamais servis publiquement.
+
+### Format des erreurs
+
+```json
+{
+  "statusCode": 400,
+  "error": "MILEAGE_TOO_LOW",
+  "message": "Le kilométrage saisi (500 km) est inférieur au kilométrage actuel du véhicule (1 000 km)"
+}
+```
+
+`message` est en français et affichable tel quel. `error` est un code stable (`VALIDATION_ERROR`,
+`INVALID_CREDENTIALS`, `NOT_FOUND`, `CONFLICT`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`,
+`NO_ACTIVE_ASSIGNMENT`, `MILEAGE_TOO_LOW`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`,
+`TOO_MANY_REQUESTS`...). Les erreurs de validation ajoutent `details` (messages par champ).
+
+### Règles métier principales
+
+- **Documents** : statut calculé (`VALIDE`, `EXPIRANT_BIENTOT` sous `ALERT_THRESHOLD_DAYS` jours,
+  `EXPIRE`) ; seul le document le plus récent de chaque type compte pour les alertes.
+- **Maintenance** : échéance fixée par le dernier entretien de chaque type ; dépassée si le compteur
+  atteint `prochainEntretienKm` ou si `prochainEntretienDate` est passée, « à prévoir » sous
+  `MAINTENANCE_KM_MARGIN` km ou `ALERT_THRESHOLD_DAYS` jours.
+- **Affectations** : une seule en cours par véhicule et par chauffeur ; véhicule hors service,
+  chauffeur inactif ou permis expiré refusés ; pas de date future ni de chevauchement.
+- **Kilométrage** : jamais inférieur au compteur, ni daté dans le futur ou avant le dernier relevé ;
+  le chauffeur ne saisit que pour son véhicule affecté.
+- **Incidents** : le chauffeur signale sur son véhicule affecté et ne voit que ses incidents.
+
+## Tests
+
+- **Unitaires** (`pnpm test`) : règles métier pures (expiration, échéances d'entretien,
+  affectations, kilométrage, alertes), guards, authentification, stockage, format d'erreur.
+- **End-to-end** (`pnpm --filter @teranga-fleet/api test:e2e`) : l'API complète contre une base
+  dédiée `<base>_test`, créée et migrée automatiquement (`migrate deploy`, non destructif). Les
+  tests ne dépendent d'aucune donnée existante : chacun crée ses propres entreprises. Une matrice
+  de sécurité vérifie, pour chaque route, l'isolation entre entreprises (404) et les droits du
+  chauffeur (403).

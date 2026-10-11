@@ -30,8 +30,11 @@ export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionC
  * utilisée pour filtrer les données. Un éventuel companyId envoyé par le client
  * est ignoré (et rejeté par la validation des DTO).
  */
-export const CompanyId = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
-  const companyId = userFrom(ctx).companyId;
-  if (!companyId) throw forbidden("Ce compte n'est rattaché à aucune entreprise");
-  return companyId;
-});
+export function companyIdOf(user: AuthUser | undefined): string {
+  if (!user?.companyId) throw forbidden("Ce compte n'est rattaché à aucune entreprise");
+  return user.companyId;
+}
+
+export const CompanyId = createParamDecorator((_data: unknown, ctx: ExecutionContext) =>
+  companyIdOf(userFrom(ctx)),
+);

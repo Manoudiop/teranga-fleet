@@ -30,6 +30,7 @@ apps/api/src/generated/
 
 # Tests
 coverage/
+coverage-e2e/
 
 # Logs
 *.log

@@ -29,14 +29,21 @@ const MESSAGES: Record<string, string> = {
   nestedValidation: 'est invalide',
 };
 
+/**
+ * Les messages par défaut de class-validator (en anglais) commencent par le nom
+ * du champ (« email must be... »), éventuellement précédé de « property » ou
+ * « each value in ». Les autres ont été écrits en français dans les DTO.
+ */
+function isDefaultMessage(message: string, property: string): boolean {
+  return !message || new RegExp(`^(property |each value in )?${property}\\b`).test(message);
+}
+
 function collect(errors: ValidationError[], prefix: string, out: Record<string, string[]>) {
   for (const error of errors) {
     const field = prefix ? `${prefix}.${error.property}` : error.property;
     if (error.constraints) {
       out[field] = Object.entries(error.constraints).map(([constraint, original]) =>
-        // class-validator préfixe ses messages par défaut par le nom du champ :
-        // un message qui ne commence pas ainsi a été écrit dans le DTO.
-        original.startsWith(`${error.property} `) || !original
+        isDefaultMessage(original, error.property)
           ? `${field} ${MESSAGES[constraint] ?? 'est invalide'}`
           : original,
       );
