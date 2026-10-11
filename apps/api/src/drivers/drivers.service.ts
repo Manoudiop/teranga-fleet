@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getExpiryStatus } from '@teranga-fleet/shared';
 import { PasswordService } from '../auth/password.service';
-import { addDays, startOfUtcDay, toDate } from '../common/dates';
+import { toDate } from '../common/dates';
 import { conflict, forbidden, notFound } from '../common/errors/app.exception';
+import { expiryDateFilter } from '../common/expiry-filter';
 import { paginated, skipTake } from '../common/pagination';
 import type { Env } from '../config/env.validation';
 import { Prisma } from '../generated/prisma/client';
@@ -82,18 +83,12 @@ export class DriversService {
   }
 
   async findAll(companyId: string, query: DriverQueryDto) {
-    const today = startOfUtcDay(new Date());
-    const soon = addDays(today, this.thresholdDays);
-    const permisFilter: Record<string, Prisma.DateTimeFilter> = {
-      EXPIRE: { lt: today },
-      EXPIRANT_BIENTOT: { gte: today, lte: soon },
-      VALIDE: { gt: soon },
-    };
-
     const where: Prisma.DriverWhereInput = {
       companyId,
       ...(query.statut && { statut: query.statut }),
-      ...(query.permis && { dateExpirationPermis: permisFilter[query.permis] }),
+      ...(query.permis && {
+        dateExpirationPermis: expiryDateFilter(query.permis, this.thresholdDays),
+      }),
       ...(query.search && {
         OR: ['nom', 'prenom', 'numeroPermis', 'contact'].map((field) => ({
           [field]: { contains: query.search, mode: 'insensitive' },

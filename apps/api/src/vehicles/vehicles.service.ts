@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { toDate } from '../common/dates';
 import { conflict, notFound } from '../common/errors/app.exception';
 import { paginated, skipTake } from '../common/pagination';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import type { CreateVehicleDto, UpdateVehicleDto, VehicleQueryDto } from './dto/vehicle.dto';
 
 /** Chauffeur de l'affectation en cours (au plus une, garanti par la base). */
@@ -31,7 +32,12 @@ function withCurrentAssignment<T extends VehicleWithAssignments>({ assignments, 
 
 @Injectable()
 export class VehiclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(VehiclesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(companyId: string, dto: CreateVehicleDto) {
     await this.assertPlateAvailable(companyId, dto.immatriculation);
@@ -134,10 +140,9 @@ export class VehiclesService {
 
   /**
    * Supprime le véhicule et tout son historique (documents, entretiens,
-   * affectations, relevés, incidents). Renvoie les clés des fichiers liés,
-   * à supprimer du stockage par l'appelant.
+   * affectations, relevés, incidents), puis les fichiers liés du stockage.
    */
-  async remove(companyId: string, id: string): Promise<string[]> {
+  async remove(companyId: string, id: string): Promise<void> {
     await this.getOwned(companyId, id);
     const [documents, incidents] = await this.prisma.$transaction([
       this.prisma.document.findMany({
@@ -150,7 +155,15 @@ export class VehiclesService {
       }),
     ]);
     await this.prisma.vehicle.delete({ where: { id } });
-    return [...documents.map((d) => d.fichierUrl!), ...incidents.map((i) => i.photoUrl!)];
+
+    const keys = [...documents.map((d) => d.fichierUrl!), ...incidents.map((i) => i.photoUrl!)];
+    // Les données sont supprimées : un fichier resté orphelin ne doit pas faire échouer la requête.
+    const results = await Promise.allSettled(keys.map((key) => this.storage.delete(key)));
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        this.logger.warn(`Fichier ${keys[i]} non supprimé du stockage : ${String(result.reason)}`);
+      }
+    });
   }
 
   /** Véhicule de l'entreprise, ou 404 (y compris s'il appartient à une autre entreprise). */

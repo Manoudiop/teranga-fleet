@@ -4,6 +4,8 @@ import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { StorageModule } from './storage/storage.module';
+import { DocumentsModule } from './documents/documents.module';
 import { DriversModule } from './drivers/drivers.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 
@@ -15,9 +17,11 @@ import { VehiclesModule } from './vehicles/vehicles.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    StorageModule,
     AuthModule,
     VehiclesModule,
     DriversModule,
+    DocumentsModule,
   ],
   controllers: [HealthController],
 })
