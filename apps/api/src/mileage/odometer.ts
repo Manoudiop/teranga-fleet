@@ -14,13 +14,10 @@ export interface OdometerReading {
  * Enregistre un relevé et fait avancer le compteur du véhicule, dans la
  * transaction fournie. La mise à jour est conditionnelle (kilometrageActuel
  * <= nouveau relevé) : même avec deux saisies simultanées, le compteur ne
- * peut jamais redescendre. Renvoie false, sans rien écrire, si le relevé est
- * inférieur au kilométrage actuel.
+ * peut jamais redescendre. Renvoie le relevé créé, ou null sans rien écrire
+ * si le relevé est inférieur au kilométrage actuel.
  */
-export async function recordOdometer(
-  tx: Prisma.TransactionClient,
-  reading: OdometerReading,
-): Promise<boolean> {
+export async function recordOdometer(tx: Prisma.TransactionClient, reading: OdometerReading) {
   const updated = await tx.vehicle.updateMany({
     where: {
       id: reading.vehicleId,
@@ -29,9 +26,9 @@ export async function recordOdometer(
     },
     data: { kilometrageActuel: reading.kilometrage },
   });
-  if (updated.count === 0) return false;
+  if (updated.count === 0) return null;
 
-  await tx.mileageLog.create({
+  return tx.mileageLog.create({
     data: {
       companyId: reading.companyId,
       vehicleId: reading.vehicleId,
@@ -40,6 +37,9 @@ export async function recordOdometer(
       date: reading.date,
       source: reading.source,
     },
+    include: {
+      vehicle: { select: { id: true, immatriculation: true, kilometrageActuel: true } },
+      driver: { select: { id: true, nom: true, prenom: true } },
+    },
   });
-  return true;
 }
