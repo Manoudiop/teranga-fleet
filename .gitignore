@@ -23,6 +23,7 @@ apps/mobile/android/
 
 # Stockage local des fichiers uploadés (dev)
 apps/api/uploads/
+apps/api/uploads-test/
 
 # Client Prisma généré (pnpm install le régénère)
 apps/api/src/generated/

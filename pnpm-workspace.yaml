@@ -4,10 +4,11 @@ packages:
 
 # Scripts d'installation des dépendances.
 # Autorisés : moteurs Prisma, binaire esbuild (tsx), binaire natif argon2.
-# Refusés : paquets qui livrent déjà des binaires précompilés.
+# Refusés : binaires déjà précompilés, télémétrie d'installation (@scarf/scarf).
 allowBuilds:
   '@parcel/watcher': false
   '@prisma/engines': true
+  '@scarf/scarf': false
   argon2: true
   esbuild: true
   prisma: true

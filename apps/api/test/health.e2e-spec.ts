@@ -1,26 +1,30 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { setupApp } from '../src/app.setup';
+import { createTestApp } from './helpers';
 
 describe('Health (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    setupApp(app);
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('GET /health', async () => {
+  it('GET /health est public et vérifie la base', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
     expect(res.body).toMatchObject({ status: 'ok', database: 'up' });
+  });
+
+  it('renvoie une 404 au format standard', async () => {
+    const res = await request(app.getHttpServer()).get('/route-inexistante').expect(404);
+    expect(res.body).toEqual({
+      statusCode: 404,
+      error: 'NOT_FOUND',
+      message: 'Ressource introuvable',
+    });
   });
 });

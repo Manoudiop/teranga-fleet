@@ -1,0 +1,92 @@
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import type { AuthUserResponse, LoginResponse } from '@teranga-fleet/shared';
+import { AppException, conflict } from '../common/errors/app.exception';
+import type { Env } from '../config/env.validation';
+import { PrismaService } from '../prisma/prisma.service';
+import type { JwtPayload } from './auth-user';
+import type { LoginDto, RegisterCompanyDto } from './dto/auth.dto';
+import { PasswordService } from './password.service';
+
+const userResponseSelect = {
+  id: true,
+  nom: true,
+  email: true,
+  role: true,
+  company: { select: { id: true, nom: true } },
+  driver: { select: { id: true, nom: true, prenom: true } },
+} as const;
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly passwords: PasswordService,
+    private readonly jwt: JwtService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
+
+  async login(dto: LoginDto): Promise<LoginResponse> {
+    // Seul endroit de l'API qui lit le hash du mot de passe (exclu par défaut).
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      omit: { password: false },
+    });
+
+    // Vérification systématique (hash factice si l'email est inconnu) et
+    // message identique dans les deux cas : on ne révèle pas si le compte existe.
+    const valid = await this.passwords.verify(user?.password, dto.password);
+    if (!user || !valid) {
+      throw new AppException(
+        HttpStatus.UNAUTHORIZED,
+        'INVALID_CREDENTIALS',
+        'Email ou mot de passe incorrect',
+      );
+    }
+    return this.issueToken(user.id);
+  }
+
+  /** Crée l'entreprise et son gestionnaire dans une seule transaction. */
+  async registerCompany(dto: RegisterCompanyDto): Promise<LoginResponse> {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.gestionnaire.email },
+      select: { id: true },
+    });
+    if (existing) throw conflict('Un compte existe déjà avec cet email');
+
+    const passwordHash = await this.passwords.hash(dto.gestionnaire.password);
+    const userId = await this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({ data: dto.entreprise });
+      const user = await tx.user.create({
+        data: {
+          nom: dto.gestionnaire.nom,
+          email: dto.gestionnaire.email,
+          password: passwordHash,
+          role: 'GESTIONNAIRE',
+          companyId: company.id,
+        },
+        select: { id: true },
+      });
+      return user.id;
+    });
+    return this.issueToken(userId);
+  }
+
+  async me(userId: string): Promise<AuthUserResponse> {
+    return this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: userResponseSelect,
+    });
+  }
+
+  private async issueToken(userId: string): Promise<LoginResponse> {
+    const payload: JwtPayload = { sub: userId };
+    return {
+      accessToken: await this.jwt.signAsync(payload),
+      tokenType: 'Bearer',
+      expiresIn: this.config.get('JWT_EXPIRES_IN', { infer: true }),
+      user: await this.me(userId),
+    };
+  }
+}
