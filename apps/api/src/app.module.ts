@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
@@ -24,6 +25,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     DriversModule,
     DocumentsModule,
     MaintenanceModule,
+    AssignmentsModule,
   ],
   controllers: [HealthController],
 })
