@@ -62,6 +62,7 @@ export function api(app: INestApplication<App>, token: string) {
     get: (url: string) => auth(request(server).get(url)),
     post: (url: string) => auth(request(server).post(url)),
     patch: (url: string) => auth(request(server).patch(url)),
+    put: (url: string) => auth(request(server).put(url)),
     delete: (url: string) => auth(request(server).delete(url)),
   };
 }
@@ -75,4 +76,53 @@ export function isoDay(days = 0): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+let plateCounter = 0;
+
+/** Crée un véhicule avec une immatriculation unique. */
+export async function createVehicle(
+  app: INestApplication<App>,
+  company: TestCompany,
+  overrides: Record<string, unknown> = {},
+): Promise<{ id: string; immatriculation: string }> {
+  plateCounter += 1;
+  const res = await api(app, company.token)
+    .post('/vehicles')
+    .send({
+      immatriculation: `T-${randomUUID().slice(0, 4).toUpperCase()}-${plateCounter}`,
+      marque: 'Toyota',
+      modele: 'Hilux',
+      kilometrageActuel: 10000,
+      ...overrides,
+    })
+    .expect(201);
+  return res.body as { id: string; immatriculation: string };
+}
+
+export interface TestDriver {
+  id: string;
+  email: string;
+  token: string;
+}
+
+/** Crée un chauffeur avec son compte mobile et le connecte. */
+export async function createDriver(
+  app: INestApplication<App>,
+  company: TestCompany,
+  overrides: Record<string, unknown> = {},
+): Promise<TestDriver> {
+  const email = uniqueEmail('chauffeur');
+  const res = await api(app, company.token)
+    .post('/drivers')
+    .send({
+      nom: 'Ndiaye',
+      prenom: 'Cheikh',
+      numeroPermis: `P-${randomUUID().slice(0, 8)}`,
+      dateExpirationPermis: isoDay(400),
+      compte: { email, password: PASSWORD },
+      ...overrides,
+    })
+    .expect(201);
+  return { id: (res.body as { id: string }).id, email, token: await login(app, email) };
 }
