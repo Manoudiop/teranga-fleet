@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AlertsModule } from './alerts/alerts.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
@@ -30,6 +31,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     AssignmentsModule,
     MileageModule,
     IncidentsModule,
+    AlertsModule,
   ],
   controllers: [HealthController],
 })

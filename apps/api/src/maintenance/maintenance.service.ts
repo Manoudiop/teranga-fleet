@@ -13,7 +13,7 @@ import type {
   MaintenanceQueryDto,
   UpdateMaintenanceDto,
 } from './dto/maintenance.dto';
-import { computeMaintenanceDue, type MaintenanceDue } from './maintenance-due';
+import { loadMaintenanceDue } from './load-maintenance-due';
 
 const vehicleSelect = {
   select: { id: true, immatriculation: true, marque: true, modele: true, kilometrageActuel: true },
@@ -144,41 +144,13 @@ export class MaintenanceService {
   }
 
   /** Entretiens dépassés ou à prévoir, les plus urgents d'abord. */
-  async due(companyId: string, vehicleId?: string) {
-    const [records, vehicles] = await this.prisma.$transaction([
-      this.prisma.maintenanceRecord.findMany({
-        where: { companyId, ...(vehicleId && { vehicleId }) },
-        select: {
-          id: true,
-          vehicleId: true,
-          type: true,
-          date: true,
-          createdAt: true,
-          prochainEntretienKm: true,
-          prochainEntretienDate: true,
-        },
-      }),
-      this.prisma.vehicle.findMany({
-        where: { companyId, ...(vehicleId && { id: vehicleId }) },
-        select: {
-          id: true,
-          immatriculation: true,
-          marque: true,
-          modele: true,
-          kilometrageActuel: true,
-        },
-      }),
-    ]);
-
-    const byId = new Map(vehicles.map((v) => [v.id, v]));
-    const due = computeMaintenanceDue(
-      records,
-      new Map(vehicles.map((v) => [v.id, v.kilometrageActuel])),
-      { today: new Date(), thresholdDays: this.thresholdDays, kmMargin: this.kmMargin },
+  due(companyId: string, vehicleId?: string) {
+    return loadMaintenanceDue(
+      this.prisma,
+      companyId,
+      { thresholdDays: this.thresholdDays, kmMargin: this.kmMargin },
+      vehicleId ? [vehicleId] : undefined,
     );
-    return due
-      .sort(compareUrgency)
-      .map((item) => ({ ...item, vehicle: byId.get(item.vehicleId)! }));
   }
 
   private assertCoherent(values: MaintenanceValues) {
@@ -197,12 +169,4 @@ export class MaintenanceService {
       throw badRequest('La date du prochain entretien doit être postérieure à cet entretien');
     }
   }
-}
-
-/** Dépassés avant « à prévoir », puis par proximité de l'échéance. */
-function compareUrgency(a: MaintenanceDue, b: MaintenanceDue): number {
-  if (a.level !== b.level) return a.level === 'OVERDUE' ? -1 : 1;
-  const score = (d: MaintenanceDue) =>
-    Math.min(d.date?.daysRemaining ?? Infinity, d.km ? d.km.remaining / 100 : Infinity);
-  return score(a) - score(b);
 }

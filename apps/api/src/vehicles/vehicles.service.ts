@@ -67,11 +67,12 @@ export class VehiclesService {
     return this.findOne(companyId, vehicle.id);
   }
 
-  async findAll(companyId: string, query: VehicleQueryDto, restrictToIds?: string[]) {
+  /** `idFilter` restreint la liste (ex. véhicules avec ou sans alerte). */
+  async findAll(companyId: string, query: VehicleQueryDto, idFilter?: Prisma.StringFilter) {
     const where: Prisma.VehicleWhereInput = {
       companyId,
       ...(query.status && { statut: query.status }),
-      ...(restrictToIds && { id: { in: restrictToIds } }),
+      ...(idFilter && { id: idFilter }),
       ...(query.search && {
         OR: [
           { immatriculation: { contains: query.search, mode: 'insensitive' } },

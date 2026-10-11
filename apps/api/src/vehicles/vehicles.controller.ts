@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AlertsService } from '../alerts/alerts.service';
 import { CompanyId, Roles } from '../auth/decorators';
 import { UuidPipe } from '../common/uuid.pipe';
 import { CreateVehicleDto, UpdateVehicleDto, VehicleQueryDto } from './dto/vehicle.dto';
@@ -21,7 +22,10 @@ import { VehiclesService } from './vehicles.service';
 @Roles('GESTIONNAIRE')
 @Controller('vehicles')
 export class VehiclesController {
-  constructor(private readonly vehicles: VehiclesService) {}
+  constructor(
+    private readonly vehicles: VehiclesService,
+    private readonly alerts: AlertsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Ajoute un véhicule à la flotte' })
@@ -31,8 +35,14 @@ export class VehiclesController {
 
   @Get()
   @ApiOperation({ summary: 'Liste paginée des véhicules, avec recherche et filtres' })
-  findAll(@CompanyId() companyId: string, @Query() query: VehicleQueryDto) {
-    return this.vehicles.findAll(companyId, query);
+  async findAll(@CompanyId() companyId: string, @Query() query: VehicleQueryDto) {
+    if (query.alerts === undefined) return this.vehicles.findAll(companyId, query);
+    const withAlerts = await this.alerts.vehicleIdsWithAlerts(companyId);
+    return this.vehicles.findAll(
+      companyId,
+      query,
+      query.alerts ? { in: withAlerts } : { notIn: withAlerts },
+    );
   }
 
   @Get(':id')

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { Transform, type TransformFnParams } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -96,4 +97,13 @@ export class VehicleQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(VehicleStatus)
   status?: VehicleStatus;
+
+  /** true : véhicules qui ont au moins une alerte ; false : véhicules sans alerte. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }: TransformFnParams): unknown =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  alerts?: boolean;
 }
