@@ -1,13 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { setupApp } from './app.setup';
 import type { Env } from './config/env.validation';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   const corsOrigins = config.get('CORS_ORIGINS', { infer: true });
@@ -17,6 +18,8 @@ async function bootstrap() {
     origin: corsOrigins.length > 0 ? corsOrigins : true,
     credentials: true,
   });
+  // IP réelle du client derrière le relais Next.js ou un reverse proxy (limitation de débit).
+  app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
   app.enableShutdownHooks();
   setupApp(app);
 

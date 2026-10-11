@@ -20,6 +20,15 @@ describe('validateEnv', () => {
     });
   });
 
+  it.each([
+    [undefined, 'loopback'],
+    ['false', false],
+    ['1', 1],
+    ['10.0.0.0/8', '10.0.0.0/8'],
+  ])('interprète TRUST_PROXY=%s', (value, expected) => {
+    expect(validateEnv({ ...base, TRUST_PROXY: value }).TRUST_PROXY).toBe(expected);
+  });
+
   it('découpe CORS_ORIGINS en liste', () => {
     const env = validateEnv({
       ...base,

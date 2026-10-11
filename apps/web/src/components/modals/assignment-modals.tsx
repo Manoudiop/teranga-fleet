@@ -1,0 +1,196 @@
+'use client';
+
+import { useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
+import { FormError } from '@/components/ui/feedback';
+import { Modal } from '@/components/ui/modal';
+import { Button, Field, Input, Select } from '@/components/ui/primitives';
+import { useToast } from '@/components/ui/toast';
+import { api } from '@/lib/api';
+import { formatDateTime, fullName } from '@/lib/format';
+import { keys, useDriverOptions, useVehicleOptions } from '@/lib/queries';
+import { useInvalidate } from '@/lib/use-invalidate';
+
+/** Date et heure locales pour un champ datetime-local. */
+function localInput(date = new Date()): string {
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+/**
+ * Nouvelle affectation. Seuls les véhicules disponibles (non hors service, non
+ * affectés) et les chauffeurs disponibles (actifs, sans véhicule) sont proposés ;
+ * l'API reste juge en dernier ressort (permis, chevauchements).
+ */
+export function AssignModal({
+  onClose,
+  vehicleId,
+  driverId,
+}: {
+  onClose: () => void;
+  vehicleId?: string;
+  driverId?: string;
+}) {
+  const toast = useToast();
+  const invalidate = useInvalidate();
+  const vehicles = useVehicleOptions();
+  const drivers = useDriverOptions();
+  const [vehicle, setVehicle] = useState(vehicleId ?? '');
+  const [driver, setDriver] = useState(driverId ?? '');
+  const [start, setStart] = useState(localInput());
+  const [touched, setTouched] = useState(false);
+
+  const freeVehicles = (vehicles.data ?? []).filter(
+    (v) => v.id === vehicleId || (v.statut !== 'HORS_SERVICE' && !v.currentDriver),
+  );
+  const freeDrivers = (drivers.data ?? []).filter(
+    (d) => d.id === driverId || (d.statut === 'ACTIF' && !d.currentVehicle),
+  );
+
+  const save = useMutation({
+    mutationFn: () =>
+      api('assignments', {
+        method: 'POST',
+        body: { vehicleId: vehicle, driverId: driver, dateDebut: new Date(start).toISOString() },
+      }),
+    onSuccess: async () => {
+      await invalidate(keys.assignments, keys.vehicles, keys.drivers);
+      toast.success('Affectation enregistrée');
+      onClose();
+    },
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Affecter un chauffeur"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            loading={save.isPending}
+            onClick={() => {
+              setTouched(true);
+              if (vehicle && driver && start) save.mutate();
+            }}
+          >
+            Affecter
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <FormError error={save.error} />
+        <Field
+          label="Véhicule"
+          htmlFor="asg-vehicle"
+          required
+          error={touched && !vehicle ? 'Choisissez un véhicule' : undefined}
+          hint={
+            !vehicleId ? 'Véhicules disponibles (ni hors service, ni déjà affectés)' : undefined
+          }
+        >
+          <Select
+            id="asg-vehicle"
+            disabled={Boolean(vehicleId)}
+            placeholder="Choisir un véhicule"
+            options={freeVehicles.map((v) => ({
+              value: v.id,
+              label: `${v.immatriculation} · ${v.marque} ${v.modele}`,
+            }))}
+            value={vehicle}
+            onChange={(e) => setVehicle(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Chauffeur"
+          htmlFor="asg-driver"
+          required
+          error={touched && !driver ? 'Choisissez un chauffeur' : undefined}
+          hint={!driverId ? 'Chauffeurs actifs sans véhicule' : undefined}
+        >
+          <Select
+            id="asg-driver"
+            disabled={Boolean(driverId)}
+            placeholder="Choisir un chauffeur"
+            options={freeDrivers.map((d) => ({ value: d.id, label: fullName(d) }))}
+            value={driver}
+            onChange={(e) => setDriver(e.target.value)}
+          />
+        </Field>
+        <Field label="Début" htmlFor="asg-start" required>
+          <Input
+            id="asg-start"
+            type="datetime-local"
+            max={localInput()}
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/** Fin de l'affectation en cours. */
+export function EndAssignmentModal({
+  onClose,
+  assignment,
+}: {
+  onClose: () => void;
+  assignment: { id: string; dateDebut: string; label: string };
+}) {
+  const toast = useToast();
+  const invalidate = useInvalidate();
+  const [end, setEnd] = useState(localInput());
+
+  const save = useMutation({
+    mutationFn: () =>
+      api(`assignments/${assignment.id}/end`, {
+        method: 'POST',
+        body: { dateFin: new Date(end).toISOString() },
+      }),
+    onSuccess: async () => {
+      await invalidate(keys.assignments, keys.vehicles, keys.drivers);
+      toast.success('Affectation terminée');
+      onClose();
+    },
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Terminer l'affectation"
+      description={`${assignment.label} · depuis le ${formatDateTime(assignment.dateDebut)}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>
+            Terminer
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <FormError error={save.error} />
+        <Field label="Fin de l'affectation" htmlFor="asg-end" required>
+          <Input
+            id="asg-end"
+            type="datetime-local"
+            min={localInput(new Date(assignment.dateDebut))}
+            max={localInput()}
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}

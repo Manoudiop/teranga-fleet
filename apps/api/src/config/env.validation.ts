@@ -20,6 +20,11 @@ export interface Env {
   S3_REGION?: string;
   /** Seuil en jours des alertes « expire bientôt » / « entretien à prévoir ». */
   ALERT_THRESHOLD_DAYS: number;
+  /**
+   * Proxies de confiance pour lire l'IP réelle du client (X-Forwarded-For) :
+   * false, un nombre de sauts, ou une liste express (loopback, 10.0.0.0/8...).
+   */
+  TRUST_PROXY: boolean | number | string;
   /** Documentation Swagger sur /docs (active par défaut hors production). */
   SWAGGER_ENABLED: boolean;
   /** Nombre maximal de tentatives de login / inscription par minute et par IP. */
@@ -50,6 +55,12 @@ function int(
     errors.push(`${key} doit être un entier entre ${min} et ${max}`);
   }
   return value;
+}
+
+function parseTrustProxy(value: string): boolean | number | string {
+  if (value === 'false') return false;
+  if (value === 'true') return true;
+  return /^\d+$/.test(value) ? Number(value) : value;
 }
 
 export function validateEnv(raw: Record<string, unknown>): Env {
@@ -112,6 +123,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     ALERT_THRESHOLD_DAYS: int(raw, 'ALERT_THRESHOLD_DAYS', 30, 1, 365, errors),
     MAINTENANCE_KM_MARGIN: int(raw, 'MAINTENANCE_KM_MARGIN', 1000, 0, 100_000, errors),
     AUTH_RATE_LIMIT: int(raw, 'AUTH_RATE_LIMIT', 10, 1, 10_000, errors),
+    TRUST_PROXY: parseTrustProxy(str(raw, 'TRUST_PROXY') || 'loopback'),
     SWAGGER_ENABLED: str(raw, 'SWAGGER_ENABLED')
       ? str(raw, 'SWAGGER_ENABLED') === 'true'
       : nodeEnv !== 'production',
