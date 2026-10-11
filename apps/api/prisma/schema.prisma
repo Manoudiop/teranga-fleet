@@ -93,6 +93,7 @@ model Company {
   assignments        Assignment[]
   mileageLogs        MileageLog[]
   incidents          Incident[]
+  locations          VehicleLocation[]
 
   @@map("companies")
 }
@@ -137,6 +138,7 @@ model Vehicle {
   assignments        Assignment[]
   mileageLogs        MileageLog[]
   incidents          Incident[]
+  locations          VehicleLocation[]
 
   @@unique([companyId, immatriculation])
   /// Cible des clés étrangères composites (isolation multi-tenant).
@@ -160,11 +162,12 @@ model Driver {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignments Assignment[]
   mileageLogs MileageLog[]
   incidents   Incident[]
+  locations   VehicleLocation[]
 
   @@unique([companyId, numeroPermis])
   @@unique([id, companyId])
@@ -290,4 +293,35 @@ model Incident {
   @@index([vehicleId])
   @@index([driverId])
   @@map("incidents")
+}
+
+/// Position GPS envoyée par le téléphone du chauffeur pendant son service.
+/// Donnée personnelle : collectée uniquement quand le chauffeur a activé
+/// « En service » dans l'application, et supprimée après LOCATION_RETENTION_DAYS.
+model VehicleLocation {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  vehicleId  String   @db.Uuid
+  driverId   String   @db.Uuid
+  latitude   Float
+  longitude  Float
+  /// Précision horizontale en mètres.
+  accuracy   Float?
+  /// Vitesse en m/s.
+  speed      Float?
+  /// Cap en degrés (0 = nord).
+  heading    Float?
+  /// Moment de la mesure sur le téléphone (les points peuvent arriver en différé).
+  recordedAt DateTime
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+  driver  Driver  @relation(fields: [driverId, companyId], references: [id, companyId], onDelete: NoAction)
+
+  /// Un même point renvoyé deux fois (file hors ligne) n'est enregistré qu'une fois.
+  @@unique([vehicleId, recordedAt])
+  @@index([companyId, recordedAt])
+  @@index([driverId, recordedAt])
+  @@map("vehicle_locations")
 }

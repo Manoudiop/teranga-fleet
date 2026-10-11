@@ -43,6 +43,10 @@ async function bootstrap() {
         .addTag('Assignments', 'Affectations chauffeur / véhicule')
         .addTag('Mileage', 'Relevés kilométriques')
         .addTag('Incidents', 'Signalements et traitement')
+        .addTag(
+          'Locations',
+          'Géolocalisation des véhicules (positions envoyées par les chauffeurs)',
+        )
         .addTag('Alerts', 'Alertes de la flotte')
         .addTag('Dashboard', 'Indicateurs du gestionnaire')
         .addTag('Admin', 'Administration de la plateforme (rôle ADMIN)')

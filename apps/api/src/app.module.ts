@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { IncidentsModule } from './incidents/incidents.module';
+import { LocationsModule } from './locations/locations.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MileageModule } from './mileage/mileage.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -33,6 +34,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     AssignmentsModule,
     MileageModule,
     IncidentsModule,
+    LocationsModule,
     AlertsModule,
     DashboardModule,
     AdminModule,
