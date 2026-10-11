@@ -17,6 +17,13 @@ export const VehicleStatus = {
 } as const;
 export type VehicleStatus = (typeof VehicleStatus)[keyof typeof VehicleStatus];
 
+export const DriverStatus = {
+  ACTIF: 'ACTIF',
+  INACTIF: 'INACTIF',
+  SUSPENDU: 'SUSPENDU',
+} as const;
+export type DriverStatus = (typeof DriverStatus)[keyof typeof DriverStatus];
+
 export const DocumentType = {
   CARTE_GRISE: 'CARTE_GRISE',
   ASSURANCE: 'ASSURANCE',

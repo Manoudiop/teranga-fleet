@@ -7,3 +7,5 @@ pnpm-lock.yaml
 **/expo-env.d.ts
 apps/api/uploads
 apps/web/AGENTS.md
+apps/api/src/generated
+apps/api/prisma/migrations

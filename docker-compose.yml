@@ -1,0 +1,22 @@
+# Services de développement local. Ne pas utiliser tel quel en production.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: teranga-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-teranga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teranga_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-teranga_fleet}
+    ports:
+      - '${POSTGRES_PORT:-5436}:5432'
+    volumes:
+      - teranga-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  teranga-postgres-data:

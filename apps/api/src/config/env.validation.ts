@@ -8,6 +8,7 @@ export interface Env {
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
   CORS_ORIGINS: string[];
+  DATABASE_URL: string;
 }
 
 const NODE_ENVS = ['development', 'test', 'production'] as const;
@@ -20,7 +21,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     errors.push(`NODE_ENV doit valoir ${NODE_ENVS.join(', ')}`);
   }
 
-  const port = Number(raw.PORT ?? 3000);
+  const port = Number(raw.PORT ?? 4000);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     errors.push('PORT doit être un entier entre 1 et 65535');
   }
@@ -33,6 +34,11 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     errors.push('CORS_ORIGINS est obligatoire en production');
   }
 
+  const databaseUrl = typeof raw.DATABASE_URL === 'string' ? raw.DATABASE_URL.trim() : '';
+  if (!/^postgres(ql)?:\/\//.test(databaseUrl)) {
+    errors.push('DATABASE_URL doit être une URL PostgreSQL (postgresql://...)');
+  }
+
   if (errors.length > 0) {
     throw new Error(`Configuration invalide :\n- ${errors.join('\n- ')}`);
   }
@@ -42,5 +48,6 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     NODE_ENV: nodeEnv as Env['NODE_ENV'],
     PORT: port,
     CORS_ORIGINS: corsOrigins,
+    DATABASE_URL: databaseUrl,
   };
 }

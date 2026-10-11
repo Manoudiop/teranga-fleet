@@ -2,10 +2,15 @@ packages:
   - apps/*
   - packages/*
 
-# Scripts d'installation des dépendances : ces paquets livrent des binaires
-# précompilés, leur postinstall est inutile.
+# Scripts d'installation des dépendances.
+# Autorisés : moteurs Prisma, binaire esbuild (tsx), binaire natif argon2.
+# Refusés : paquets qui livrent déjà des binaires précompilés.
 allowBuilds:
   '@parcel/watcher': false
+  '@prisma/engines': true
+  argon2: true
+  esbuild: true
+  prisma: true
   unrs-resolver: false
 
 # expo-router embarque Radix, qui installe @types/react-dom@19.3 alors que

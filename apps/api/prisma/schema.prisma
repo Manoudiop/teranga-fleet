@@ -1,0 +1,293 @@
+// Schéma de données Teranga Fleet.
+//
+// Multi-tenant : chaque table métier porte directement un `companyId`.
+// Les relations vers un véhicule ou un chauffeur sont des clés étrangères
+// composites (id + companyId), ce qui garantit en base qu'un document,
+// un entretien, une affectation, un relevé ou un incident appartient toujours
+// à la même entreprise que le véhicule et le chauffeur auxquels il est lié.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums (dupliqués dans packages/shared/src/enums.ts, à garder synchronisés)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  GESTIONNAIRE
+  CHAUFFEUR
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  HORS_SERVICE
+}
+
+enum DriverStatus {
+  ACTIF
+  INACTIF
+  SUSPENDU
+}
+
+enum DocumentType {
+  CARTE_GRISE
+  ASSURANCE
+  VISITE_TECHNIQUE
+  VIGNETTE
+}
+
+enum MileageSource {
+  MANUEL
+  APP
+}
+
+enum IncidentType {
+  ACCIDENT
+  PANNE
+  PROBLEME_MECANIQUE
+  PNEU
+  AUTRE
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// ---------------------------------------------------------------------------
+// Modèles
+// ---------------------------------------------------------------------------
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  nom       String
+  email     String
+  telephone String?
+  adresse   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  vehicles           Vehicle[]
+  drivers            Driver[]
+  documents          Document[]
+  maintenanceRecords MaintenanceRecord[]
+  assignments        Assignment[]
+  mileageLogs        MileageLog[]
+  incidents          Incident[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  nom       String
+  /// Toujours stocké en minuscules. Unique sur toute la plateforme.
+  email     String   @unique
+  /// Hash argon2. Ne doit jamais sortir de l'API.
+  password  String
+  role      Role
+  /// Null uniquement pour les ADMIN de la plateforme.
+  companyId String?  @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  driver  Driver?
+
+  @@index([companyId])
+  @@map("users")
+}
+
+model Vehicle {
+  id                String        @id @default(uuid()) @db.Uuid
+  immatriculation   String
+  marque            String
+  modele            String
+  annee             Int?
+  type              String?
+  dateAcquisition   DateTime?     @db.Date
+  statut            VehicleStatus @default(ACTIVE)
+  kilometrageActuel Int           @default(0)
+  companyId         String        @db.Uuid
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents          Document[]
+  maintenanceRecords MaintenanceRecord[]
+  assignments        Assignment[]
+  mileageLogs        MileageLog[]
+  incidents          Incident[]
+
+  @@unique([companyId, immatriculation])
+  /// Cible des clés étrangères composites (isolation multi-tenant).
+  @@unique([id, companyId])
+  @@index([companyId, statut])
+  @@index([immatriculation])
+  @@map("vehicles")
+}
+
+model Driver {
+  id                   String       @id @default(uuid()) @db.Uuid
+  nom                  String
+  prenom               String
+  contact              String?
+  numeroPermis         String
+  dateExpirationPermis DateTime     @db.Date
+  statut               DriverStatus @default(ACTIF)
+  companyId            String       @db.Uuid
+  /// Compte mobile du chauffeur (rôle CHAUFFEUR), optionnel.
+  userId               String?      @unique @db.Uuid
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignments Assignment[]
+  mileageLogs MileageLog[]
+  incidents   Incident[]
+
+  @@unique([companyId, numeroPermis])
+  @@unique([id, companyId])
+  @@index([companyId, dateExpirationPermis])
+  @@map("drivers")
+}
+
+model Assignment {
+  id        String    @id @default(uuid()) @db.Uuid
+  vehicleId String    @db.Uuid
+  driverId  String    @db.Uuid
+  companyId String    @db.Uuid
+  dateDebut DateTime
+  /// Null = affectation en cours.
+  dateFin   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+  /// NoAction : un chauffeur qui a un historique se désactive, il ne se supprime pas.
+  driver  Driver  @relation(fields: [driverId, companyId], references: [id, companyId], onDelete: NoAction)
+
+  /// Un véhicule ne peut avoir qu'une seule affectation en cours.
+  @@unique([vehicleId], map: "assignments_one_active_per_vehicle", where: raw("\"dateFin\" IS NULL"))
+  /// Un chauffeur ne peut conduire qu'un seul véhicule à la fois.
+  @@unique([driverId], map: "assignments_one_active_per_driver", where: raw("\"dateFin\" IS NULL"))
+  @@index([companyId, dateFin])
+  @@index([vehicleId, dateDebut])
+  @@index([driverId, dateDebut])
+  @@map("assignments")
+}
+
+model Document {
+  id             String       @id @default(uuid()) @db.Uuid
+  vehicleId      String       @db.Uuid
+  companyId      String       @db.Uuid
+  type           DocumentType
+  dateEmission   DateTime?    @db.Date
+  dateExpiration DateTime     @db.Date
+  /// Clé de stockage du fichier (local ou S3), jamais une URL publique figée.
+  fichierUrl     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([companyId, dateExpiration])
+  @@index([type])
+  @@map("documents")
+}
+
+model MaintenanceRecord {
+  id                    String    @id @default(uuid()) @db.Uuid
+  vehicleId             String    @db.Uuid
+  companyId             String    @db.Uuid
+  type                  String
+  date                  DateTime  @db.Date
+  kilometrageAuMoment   Int
+  /// Montant en francs CFA (XOF), sans décimales.
+  cout                  Int       @default(0)
+  garage                String?
+  notes                 String?
+  prochainEntretienKm   Int?
+  prochainEntretienDate DateTime? @db.Date
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+
+  @@index([vehicleId, date])
+  @@index([companyId, date])
+  @@index([prochainEntretienDate])
+  @@index([prochainEntretienKm])
+  @@map("maintenance_records")
+}
+
+model MileageLog {
+  id          String        @id @default(uuid()) @db.Uuid
+  vehicleId   String        @db.Uuid
+  driverId    String?       @db.Uuid
+  companyId   String        @db.Uuid
+  date        DateTime
+  kilometrage Int
+  source      MileageSource
+  createdAt   DateTime      @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+  driver  Driver? @relation(fields: [driverId, companyId], references: [id, companyId], onDelete: NoAction)
+
+  @@index([vehicleId, date])
+  @@index([driverId, date])
+  @@index([companyId])
+  @@map("mileage_logs")
+}
+
+model Incident {
+  id                String           @id @default(uuid()) @db.Uuid
+  vehicleId         String           @db.Uuid
+  driverId          String?          @db.Uuid
+  companyId         String           @db.Uuid
+  type              IncidentType
+  severity          IncidentSeverity
+  status            IncidentStatus   @default(OPEN)
+  description       String
+  /// Informations ajoutées par le gestionnaire lors du traitement.
+  notesGestionnaire String?
+  photoUrl          String?
+  resolvedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId, companyId], references: [id, companyId], onDelete: Cascade)
+  driver  Driver? @relation(fields: [driverId, companyId], references: [id, companyId], onDelete: NoAction)
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@map("incidents")
+}

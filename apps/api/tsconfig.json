@@ -16,5 +16,5 @@
     "incremental": true,
     "strictPropertyInitialization": false
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "prisma", "prisma.config.ts"]
 }

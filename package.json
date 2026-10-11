@@ -8,10 +8,16 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "postinstall": "pnpm --filter @teranga-fleet/shared build",
+    "postinstall": "pnpm --filter @teranga-fleet/shared build && pnpm --filter @teranga-fleet/api prisma:generate",
     "dev:api": "pnpm --filter @teranga-fleet/api start:dev",
     "dev:web": "pnpm --filter @teranga-fleet/web dev",
     "dev:mobile": "pnpm --filter @teranga-fleet/mobile start",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose stop postgres",
+    "db:migrate": "pnpm --filter @teranga-fleet/api prisma:migrate",
+    "db:seed": "pnpm --filter @teranga-fleet/api prisma:seed",
+    "db:reset": "pnpm --filter @teranga-fleet/api prisma:reset",
+    "db:studio": "pnpm --filter @teranga-fleet/api prisma:studio",
     "build": "pnpm -r --filter !@teranga-fleet/mobile build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
