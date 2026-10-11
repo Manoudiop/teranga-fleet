@@ -164,9 +164,9 @@ L'API valide sa configuration au démarrage et refuse de démarrer si elle est i
 
 ### Web (`apps/web/.env.local`)
 
-| Variable              | Description                         |
-| --------------------- | ----------------------------------- |
-| `NEXT_PUBLIC_API_URL` | URL de l'API, exposée au navigateur |
+| Variable  | Description                                                                         |
+| --------- | ----------------------------------------------------------------------------------- |
+| `API_URL` | URL de l'API, utilisée uniquement par le serveur Next.js (jamais par le navigateur) |
 
 ### Mobile (`apps/mobile/.env`)
 
@@ -194,6 +194,29 @@ pnpm dev:mobile   # Serveur Expo : scanner le QR code avec Expo Go
 | `pnpm --filter @teranga-fleet/api test:e2e`     | Tests end-to-end de l'API (PostgreSQL doit être lancé) |
 | `pnpm --filter @teranga-fleet/api test:e2e:cov` | Tests end-to-end avec rapport de couverture            |
 | `pnpm format` / `pnpm format:check`             | Formatage Prettier                                     |
+
+## Dashboard web
+
+Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://localhost:3001.
+
+**Sécurité de la session.** Le navigateur ne voit jamais le JWT :
+
+- `/api/auth/login` et `/api/auth/register` (route handlers Next.js) appellent l'API et placent
+  le token dans un cookie `httpOnly`, `SameSite=Lax` (`Secure` en production) ;
+- le navigateur appelle `/api/<chemin>`, relayé vers l'API avec le token (« backend for
+  frontend ») ; les écritures venant d'un autre site sont refusées (CSRF) ;
+- `src/proxy.ts` redirige vers `/login` toute page visitée sans session ; un 401 de l'API efface le
+  cookie et renvoie à la connexion.
+
+**Pages** : `/login`, `/register`, `/dashboard`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
+`/drivers` (+ `/new`, `/[id]`), `/assignments`, `/documents`, `/maintenance`, `/incidents`,
+`/alerts`, et `/admin` pour le rôle ADMIN. Un chauffeur qui se connecte au web est invité à
+utiliser l'application mobile.
+
+**Choix techniques** : TanStack Query (cache et invalidation après chaque écriture), React Hook
+Form + Zod (validation côté client, erreurs de l'API reportées sous les champs), Tailwind CSS 4,
+icônes `lucide-react`. Les filtres des listes sont conservés dans l'URL (liens partageables,
+bouton Retour). Les fichiers (documents, photos) passent par le relais authentifié.
 
 ## API
 
