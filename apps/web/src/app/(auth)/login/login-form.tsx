@@ -9,13 +9,19 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormError } from '@/components/ui/feedback';
 import { Button, Field, Input } from '@/components/ui/primitives';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
 const schema = z.object({
   email: z.email('Adresse email invalide'),
   password: z.string().min(1, 'Le mot de passe est obligatoire'),
 });
 type Values = z.infer<typeof schema>;
+
+const SESSION_CUT_REASONS: Record<string, string> = {
+  ACCOUNT_DISABLED: 'Votre compte a été désactivé. Contactez votre gestionnaire ou le support.',
+  COMPANY_SUSPENDED:
+    "L'accès de votre entreprise à Teranga Fleet est suspendu. Contactez le support.",
+};
 
 /** Seules les redirections internes sont suivies après connexion. */
 function safeNext(next: string | null): string {
@@ -45,9 +51,12 @@ export function LoginForm() {
     }
   });
 
+  // Session coupée pendant l'utilisation (compte désactivé, entreprise suspendue).
+  const reason = SESSION_CUT_REASONS[params.get('raison') ?? ''];
+
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
-      <FormError error={error} />
+      <FormError error={error ?? (reason ? new ApiError(401, 'UNAUTHORIZED', reason) : null)} />
       <Field label="Email" htmlFor="email" error={errors.email?.message}>
         <Input id="email" type="email" autoComplete="email" autoFocus {...register('email')} />
       </Field>

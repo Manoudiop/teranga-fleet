@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   Bell,
   Building2,
+  CircleUser,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -13,6 +14,7 @@ import {
   Siren,
   Smartphone,
   Truck,
+  UserCog,
   Users,
   Wrench,
   X,
@@ -42,6 +44,7 @@ const MANAGER_NAV: NavItem[] = [
   { href: '/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/incidents', label: 'Incidents', icon: Siren },
   { href: '/alerts', label: 'Alertes', icon: Bell },
+  { href: '/team', label: 'Équipe', icon: UserCog },
 ];
 
 const ADMIN_NAV: NavItem[] = [{ href: '/admin', label: 'Entreprises', icon: Building2 }];
@@ -62,8 +65,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // L'administrateur de la plateforme n'a pas de flotte : il ne voit que /admin.
-    if (role === 'ADMIN' && !pathname.startsWith('/admin')) router.replace('/admin');
+    // L'administrateur de la plateforme n'a pas de flotte : il ne voit que /admin et son compte.
+    if (role === 'ADMIN' && !pathname.startsWith('/admin') && pathname !== '/account') {
+      router.replace('/admin');
+    }
   }, [role, pathname, router]);
 
   if (me.isPending) return <Spinner label="Chargement de votre espace…" />;
@@ -135,10 +140,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             {me.data.company?.nom ?? 'Administration de la plateforme'}
           </p>
         </div>
-        <div className="hidden text-right sm:block">
+        <Link
+          href="/account"
+          className="hidden rounded-lg px-2 py-1 text-right hover:bg-slate-100 sm:block"
+          title="Mon compte"
+        >
           <p className="text-sm font-medium text-slate-900">{me.data.nom}</p>
           <p className="text-xs text-slate-500">{me.data.email}</p>
-        </div>
+        </Link>
+        <Link
+          href="/account"
+          className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100 sm:hidden"
+          aria-label="Mon compte"
+        >
+          <CircleUser className="size-5" />
+        </Link>
         <Button
           variant="ghost"
           size="sm"

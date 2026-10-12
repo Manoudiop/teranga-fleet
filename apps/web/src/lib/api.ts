@@ -32,13 +32,18 @@ export function apiPath(path: string, query?: Record<string, QueryValue>): strin
   return `/api/${path.replace(/^\//, '')}${qs ? `?${qs}` : ''}`;
 }
 
-/** Session expirée : retour à la connexion en conservant la page demandée. */
-function redirectToLogin() {
+/**
+ * Session expirée ou coupée (compte désactivé, entreprise suspendue) : retour à
+ * la connexion en conservant la page demandée et la raison à afficher.
+ */
+function redirectToLogin(reason?: string) {
   if (typeof window === 'undefined' || window.location.pathname === '/login') return;
   const next = encodeURIComponent(window.location.pathname + window.location.search);
+  const why =
+    reason === 'ACCOUNT_DISABLED' || reason === 'COMPANY_SUSPENDED' ? `&raison=${reason}` : '';
   // Hors de React (pas de routeur ici) : rechargement complet, qui vide aussi le cache.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.assign(`/login?next=${next}`);
+  window.location.assign(`/login?next=${next}${why}`);
 }
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
@@ -66,7 +71,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   if (!response.ok) {
     const error = data as Partial<ApiErrorResponse> | null;
-    if (response.status === 401 && path !== 'auth/login') redirectToLogin();
+    if (response.status === 401 && path !== 'auth/login') redirectToLogin(error?.error);
     throw new ApiError(
       response.status,
       error?.error ?? 'INTERNAL_ERROR',

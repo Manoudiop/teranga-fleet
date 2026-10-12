@@ -3,8 +3,9 @@
 import type { PaginatedResponse } from '@teranga-fleet/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Building2, Siren, Truck, Users } from 'lucide-react';
+import Link from 'next/link';
 import { EmptyState, ErrorState, Pagination, Spinner, Toolbar } from '@/components/ui/feedback';
-import { Card, PageHeader, Table, Td, Th } from '@/components/ui/primitives';
+import { Badge, Card, PageHeader, Table, Td, Th } from '@/components/ui/primitives';
 import { SearchInput } from '@/components/ui/search-input';
 import { api } from '@/lib/api';
 import { formatDate, formatNumber } from '@/lib/format';
@@ -21,6 +22,7 @@ interface AdminStats {
 interface CompanyRow {
   id: string;
   nom: string;
+  suspendedAt: string | null;
   email: string;
   telephone: string | null;
   createdAt: string;
@@ -130,7 +132,17 @@ export default function AdminPage() {
                 {companies.data.data.map((c) => (
                   <tr key={c.id}>
                     <Td>
-                      <span className="font-medium text-slate-900">{c.nom}</span>
+                      <Link
+                        href={`/admin/companies/${c.id}`}
+                        className="font-medium text-slate-900 hover:text-brand-700"
+                      >
+                        {c.nom}
+                      </Link>
+                      {c.suspendedAt && (
+                        <span className="ml-2">
+                          <Badge tone="danger">Suspendue</Badge>
+                        </span>
+                      )}
                       <span className="block text-xs text-slate-500">
                         {c.email}
                         {c.telephone && ` · ${c.telephone}`}

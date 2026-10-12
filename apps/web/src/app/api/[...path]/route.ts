@@ -25,13 +25,16 @@ function isSameOrigin(request: NextRequest): boolean {
   return !origin || new URL(origin).host === request.headers.get('host');
 }
 
+const RELAYED_AUTH_ROUTES = new Set(['auth/me', 'auth/password']);
+
 async function relay(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const target = path.join('/');
 
   // Connexion et inscription passent par /api/auth/login|register, qui posent le cookie :
-  // le relais ne doit jamais renvoyer un token au navigateur.
-  if (target.startsWith('auth/') && target !== 'auth/me') {
+  // le relais ne doit jamais renvoyer un token au navigateur. Seules les routes auth qui
+  // n'en émettent pas sont relayées.
+  if (target.startsWith('auth/') && !RELAYED_AUTH_ROUTES.has(target)) {
     return errorResponse(404, 'NOT_FOUND', 'Ressource introuvable');
   }
   if (request.method !== 'GET' && !isSameOrigin(request)) {
