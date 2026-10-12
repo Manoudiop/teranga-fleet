@@ -10,7 +10,8 @@ import { EmptyState, ErrorState, Pagination, Spinner, Toolbar } from '@/componen
 import { Badge, Button, Card, PageHeader, Select, Table, Td, Th } from '@/components/ui/primitives';
 import { api } from '@/lib/api';
 import { formatDateTime, fullName } from '@/lib/format';
-import { keys, useDriverOptions, useVehicleOptions } from '@/lib/queries';
+import { DriverPicker, VehiclePicker } from '@/components/entity-pickers';
+import { keys } from '@/lib/queries';
 import type { Assignment } from '@/lib/types';
 import { useUrlState } from '@/lib/use-url-state';
 
@@ -24,8 +25,6 @@ export default function AssignmentsPage() {
   const query = { ...values, page, limit: 20 };
   const [assigning, setAssigning] = useState(false);
   const [ending, setEnding] = useState<Assignment | null>(null);
-  const vehicles = useVehicleOptions();
-  const drivers = useDriverOptions();
 
   const assignments = useQuery({
     queryKey: [...keys.assignments, 'list', query],
@@ -54,21 +53,21 @@ export default function AssignmentsPage() {
             value={values.active}
             onChange={(e) => set({ active: e.target.value })}
           />
-          <Select
+          <VehiclePicker
             aria-label="Filtrer par véhicule"
             className="w-full sm:w-56"
             placeholder="Tous les véhicules"
-            options={(vehicles.data ?? []).map((v) => ({ value: v.id, label: v.immatriculation }))}
+            clearLabel="Tous les véhicules"
             value={values.vehicleId}
-            onChange={(e) => set({ vehicleId: e.target.value })}
+            onChange={(vehicleId) => set({ vehicleId })}
           />
-          <Select
+          <DriverPicker
             aria-label="Filtrer par chauffeur"
             className="w-full sm:w-56"
             placeholder="Tous les chauffeurs"
-            options={(drivers.data ?? []).map((d) => ({ value: d.id, label: fullName(d) }))}
+            clearLabel="Tous les chauffeurs"
             value={values.driverId}
-            onChange={(e) => set({ driverId: e.target.value })}
+            onChange={(driverId) => set({ driverId })}
           />
         </Toolbar>
 

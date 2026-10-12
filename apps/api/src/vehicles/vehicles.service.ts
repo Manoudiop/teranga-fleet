@@ -72,6 +72,10 @@ export class VehiclesService {
     const where: Prisma.VehicleWhereInput = {
       companyId,
       ...(query.status && { statut: query.status }),
+      ...(query.available && {
+        statut: query.status ?? { not: 'HORS_SERVICE' },
+        assignments: { none: { dateFin: null } },
+      }),
       ...(idFilter && { id: idFilter }),
       ...(query.search && {
         OR: [

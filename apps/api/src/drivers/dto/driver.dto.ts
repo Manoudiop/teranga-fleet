@@ -11,7 +11,12 @@ import {
 } from 'class-validator';
 import { IsCalendarDate } from '../../common/dates';
 import { PaginationQueryDto } from '../../common/pagination';
-import { NormalizedEmail, StrongPassword, Trim } from '../../common/validators';
+import {
+  NormalizedEmail,
+  OptionalQueryBoolean,
+  StrongPassword,
+  Trim,
+} from '../../common/validators';
 import { DriverStatus } from '../../generated/prisma/enums';
 
 export class DriverAccountDto {
@@ -97,4 +102,9 @@ export class DriverQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(PERMIS_FILTERS)
   permis?: (typeof PERMIS_FILTERS)[number];
+
+  /** true : chauffeurs affectables (actifs, sans affectation en cours). */
+  @ApiPropertyOptional()
+  @OptionalQueryBoolean()
+  available?: boolean;
 }

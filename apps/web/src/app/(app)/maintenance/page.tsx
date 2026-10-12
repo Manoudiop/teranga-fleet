@@ -14,7 +14,6 @@ import {
   CardHeader,
   Input,
   PageHeader,
-  Select,
   Table,
   Td,
   Th,
@@ -22,7 +21,8 @@ import {
 import { SearchInput } from '@/components/ui/search-input';
 import { api } from '@/lib/api';
 import { formatDate, formatKm, formatXof } from '@/lib/format';
-import { keys, useVehicleOptions } from '@/lib/queries';
+import { VehiclePicker } from '@/components/entity-pickers';
+import { keys } from '@/lib/queries';
 import type { MaintenanceDue, MaintenanceRecord } from '@/lib/types';
 import { useUrlState } from '@/lib/use-url-state';
 
@@ -51,7 +51,6 @@ export default function MaintenancePage() {
   const { values, page, set } = useUrlState(['search', 'vehicleId', 'from', 'to'] as const);
   const query = { ...values, page, limit: 20 };
   const [editing, setEditing] = useState<MaintenanceRecord | 'new' | null>(null);
-  const vehicles = useVehicleOptions();
 
   const due = useQuery({
     queryKey: [...keys.maintenance, 'due'],
@@ -127,13 +126,13 @@ export default function MaintenancePage() {
             value={values.search}
             onChange={(search) => set({ search })}
           />
-          <Select
+          <VehiclePicker
             aria-label="Filtrer par véhicule"
             className="w-full sm:w-52"
             placeholder="Tous les véhicules"
-            options={(vehicles.data ?? []).map((v) => ({ value: v.id, label: v.immatriculation }))}
+            clearLabel="Tous les véhicules"
             value={values.vehicleId}
-            onChange={(e) => set({ vehicleId: e.target.value })}
+            onChange={(vehicleId) => set({ vehicleId })}
           />
           <label className="flex items-center gap-2 text-sm text-slate-500">
             Du

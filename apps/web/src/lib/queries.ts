@@ -1,9 +1,8 @@
 'use client';
 
-import type { Alert, AuthUserResponse, PaginatedResponse } from '@teranga-fleet/shared';
+import type { Alert, AuthUserResponse } from '@teranga-fleet/shared';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api';
-import type { Driver, Vehicle } from './types';
 
 /** Clés TanStack Query : invalider une racine rafraîchit toutes les vues qui en dépendent. */
 export const keys = {
@@ -36,21 +35,4 @@ export function useMe() {
 
 export function useAlerts() {
   return useQuery({ queryKey: keys.alerts, queryFn: () => api<Alert[]>('alerts') });
-}
-
-/** Véhicules pour les listes déroulantes (100 maximum, limite de l'API). */
-export function useVehicleOptions() {
-  return useQuery({
-    queryKey: [...keys.vehicles, 'options'],
-    queryFn: () => api<PaginatedResponse<Vehicle>>('vehicles', { query: { limit: 100 } }),
-    select: (res) => res.data,
-  });
-}
-
-export function useDriverOptions() {
-  return useQuery({
-    queryKey: [...keys.drivers, 'options'],
-    queryFn: () => api<PaginatedResponse<Driver>>('drivers', { query: { limit: 100 } }),
-    select: (res) => res.data,
-  });
 }

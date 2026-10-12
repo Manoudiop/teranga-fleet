@@ -48,6 +48,32 @@ describe('Assignments (e2e)', () => {
     expect(me.body.currentVehicle).toMatchObject({ immatriculation: 'DK-AFF-1' });
   });
 
+  it('liste uniquement les véhicules et chauffeurs affectables avec available=true', async () => {
+    const c = await registerCompany(app);
+    const busyVehicle = await createVehicle(app, c, { immatriculation: 'DK-DISPO-1' });
+    await createVehicle(app, c, { immatriculation: 'DK-DISPO-2' });
+    await createVehicle(app, c, { immatriculation: 'DK-DISPO-3', statut: 'HORS_SERVICE' });
+    await createVehicle(app, c, { immatriculation: 'DK-DISPO-4', statut: 'MAINTENANCE' });
+    const busyDriver = await createDriver(app, c, { prenom: 'Occupé' });
+    await createDriver(app, c, { prenom: 'Libre' });
+    await createDriver(app, c, { prenom: 'Inactif', statut: 'INACTIF' });
+    await assign(c, { vehicleId: busyVehicle.id, driverId: busyDriver.id }).expect(201);
+
+    const plates = (res: { body: { data: { immatriculation: string }[] } }) =>
+      res.body.data.map((v) => v.immatriculation);
+    const vehicles = await api(app, c.token).get('/vehicles?available=true').expect(200);
+    expect(plates(vehicles)).toEqual(['DK-DISPO-2', 'DK-DISPO-4']);
+    const searched = await api(app, c.token)
+      .get('/vehicles?available=true&search=dispo-4')
+      .expect(200);
+    expect(plates(searched)).toEqual(['DK-DISPO-4']);
+
+    const drivers = await api(app, c.token).get('/drivers?available=true').expect(200);
+    expect(drivers.body.data.map((d: { prenom: string }) => d.prenom)).toEqual(['Libre']);
+
+    await api(app, c.token).get('/vehicles?available=oui').expect(400);
+  });
+
   it('refuse un véhicule déjà affecté et un chauffeur déjà occupé', async () => {
     const vehicle = await createVehicle(app, a, { immatriculation: 'DK-AFF-2' });
     const other = await createVehicle(app, a);

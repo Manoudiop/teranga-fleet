@@ -86,6 +86,10 @@ export class DriversService {
     const where: Prisma.DriverWhereInput = {
       companyId,
       ...(query.statut && { statut: query.statut }),
+      ...(query.available && {
+        statut: query.statut ?? 'ACTIF',
+        assignments: { none: { dateFin: null } },
+      }),
       ...(query.permis && {
         dateExpirationPermis: expiryDateFilter(query.permis, this.thresholdDays),
       }),

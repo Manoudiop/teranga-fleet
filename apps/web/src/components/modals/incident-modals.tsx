@@ -6,10 +6,11 @@ import { ErrorState, FormError, Spinner } from '@/components/ui/feedback';
 import { Modal } from '@/components/ui/modal';
 import { Button, Field, Select, StatusBadge, Textarea } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/toast';
+import { VehiclePicker } from '@/components/entity-pickers';
 import { api, apiPath } from '@/lib/api';
 import { formatDateTime, fullName } from '@/lib/format';
 import { INCIDENT_SEVERITY, INCIDENT_STATUS, INCIDENT_TYPE, options } from '@/lib/labels';
-import { keys, useVehicleOptions } from '@/lib/queries';
+import { keys } from '@/lib/queries';
 import type { Incident } from '@/lib/types';
 import { useInvalidate } from '@/lib/use-invalidate';
 
@@ -173,7 +174,6 @@ export function NewIncidentModal({
 }) {
   const toast = useToast();
   const invalidate = useInvalidate();
-  const vehicles = useVehicleOptions();
   const [vehicle, setVehicle] = useState(vehicleId ?? '');
   const [type, setType] = useState('PANNE');
   const [severity, setSeverity] = useState('MEDIUM');
@@ -229,15 +229,12 @@ export function NewIncidentModal({
             required
             error={touched && !vehicle ? 'Choisissez un véhicule' : undefined}
           >
-            <Select
+            <VehiclePicker
               id="new-inc-vehicle"
-              placeholder="Choisir un véhicule"
-              options={(vehicles.data ?? []).map((v) => ({
-                value: v.id,
-                label: `${v.immatriculation} · ${v.marque} ${v.modele}`,
-              }))}
+              placeholder="Rechercher un véhicule"
               value={vehicle}
-              onChange={(e) => setVehicle(e.target.value)}
+              onChange={setVehicle}
+              invalid={touched && !vehicle}
             />
           </Field>
         )}

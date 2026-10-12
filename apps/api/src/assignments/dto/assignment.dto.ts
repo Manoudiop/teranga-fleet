@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, type TransformFnParams } from 'class-transformer';
-import { IsBoolean, IsISO8601, IsOptional, IsUUID } from 'class-validator';
+import { IsISO8601, IsOptional, IsUUID } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination';
+import { OptionalQueryBoolean } from '../../common/validators';
 
 export class CreateAssignmentDto {
   @ApiProperty()
@@ -43,11 +43,7 @@ export class EndAssignmentDto {
 export class AssignmentQueryDto extends PaginationQueryDto {
   /** true : affectations en cours uniquement ; false : terminées uniquement. */
   @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown =>
-    value === 'true' ? true : value === 'false' ? false : value,
-  )
-  @IsBoolean()
+  @OptionalQueryBoolean()
   active?: boolean;
 
   @ApiPropertyOptional()

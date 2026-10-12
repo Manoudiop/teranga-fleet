@@ -2,17 +2,18 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormError } from '@/components/ui/feedback';
 import { Modal } from '@/components/ui/modal';
 import { Button, Field, Input, Select } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/toast';
+import { VehiclePicker } from '@/components/entity-pickers';
 import { api } from '@/lib/api';
 import { toDateInput } from '@/lib/format';
 import { applyApiErrors } from '@/lib/forms';
 import { DOCUMENT_TYPE, options } from '@/lib/labels';
-import { keys, useVehicleOptions } from '@/lib/queries';
+import { keys } from '@/lib/queries';
 import type { FleetDocument } from '@/lib/types';
 import { useInvalidate } from '@/lib/use-invalidate';
 
@@ -61,10 +62,10 @@ export function DocumentModal({
 }) {
   const toast = useToast();
   const invalidate = useInvalidate();
-  const vehicles = useVehicleOptions();
   const isEdit = Boolean(document);
 
   const {
+    control,
     register,
     handleSubmit,
     setError,
@@ -124,14 +125,18 @@ export function DocumentModal({
         <FormError error={save.isError && !Object.keys(errors).length ? save.error : null} />
         {!vehicleId && !isEdit && (
           <Field label="Véhicule" htmlFor="doc-vehicle" error={errors.vehicleId?.message} required>
-            <Select
-              id="doc-vehicle"
-              placeholder="Choisir un véhicule"
-              options={(vehicles.data ?? []).map((v) => ({
-                value: v.id,
-                label: `${v.immatriculation} · ${v.marque} ${v.modele}`,
-              }))}
-              {...register('vehicleId')}
+            <Controller
+              control={control}
+              name="vehicleId"
+              render={({ field }) => (
+                <VehiclePicker
+                  id="doc-vehicle"
+                  placeholder="Rechercher un véhicule"
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={Boolean(errors.vehicleId)}
+                />
+              )}
             />
           </Field>
         )}

@@ -4,11 +4,12 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FormError } from '@/components/ui/feedback';
 import { Modal } from '@/components/ui/modal';
-import { Button, Field, Input, Select } from '@/components/ui/primitives';
+import { Button, Field, Input } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/toast';
+import { DriverPicker, VehiclePicker } from '@/components/entity-pickers';
 import { api } from '@/lib/api';
-import { formatDateTime, fullName } from '@/lib/format';
-import { keys, useDriverOptions, useVehicleOptions } from '@/lib/queries';
+import { formatDateTime } from '@/lib/format';
+import { keys } from '@/lib/queries';
 import { useInvalidate } from '@/lib/use-invalidate';
 
 /** Date et heure locales pour un champ datetime-local. */
@@ -34,19 +35,10 @@ export function AssignModal({
 }) {
   const toast = useToast();
   const invalidate = useInvalidate();
-  const vehicles = useVehicleOptions();
-  const drivers = useDriverOptions();
   const [vehicle, setVehicle] = useState(vehicleId ?? '');
   const [driver, setDriver] = useState(driverId ?? '');
   const [start, setStart] = useState(localInput());
   const [touched, setTouched] = useState(false);
-
-  const freeVehicles = (vehicles.data ?? []).filter(
-    (v) => v.id === vehicleId || (v.statut !== 'HORS_SERVICE' && !v.currentDriver),
-  );
-  const freeDrivers = (drivers.data ?? []).filter(
-    (d) => d.id === driverId || (d.statut === 'ACTIF' && !d.currentVehicle),
-  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -94,16 +86,14 @@ export function AssignModal({
             !vehicleId ? 'Véhicules disponibles (ni hors service, ni déjà affectés)' : undefined
           }
         >
-          <Select
+          <VehiclePicker
             id="asg-vehicle"
+            available
             disabled={Boolean(vehicleId)}
-            placeholder="Choisir un véhicule"
-            options={freeVehicles.map((v) => ({
-              value: v.id,
-              label: `${v.immatriculation} · ${v.marque} ${v.modele}`,
-            }))}
+            placeholder="Rechercher un véhicule"
             value={vehicle}
-            onChange={(e) => setVehicle(e.target.value)}
+            onChange={setVehicle}
+            invalid={touched && !vehicle}
           />
         </Field>
         <Field
@@ -113,13 +103,14 @@ export function AssignModal({
           error={touched && !driver ? 'Choisissez un chauffeur' : undefined}
           hint={!driverId ? 'Chauffeurs actifs sans véhicule' : undefined}
         >
-          <Select
+          <DriverPicker
             id="asg-driver"
+            available
             disabled={Boolean(driverId)}
-            placeholder="Choisir un chauffeur"
-            options={freeDrivers.map((d) => ({ value: d.id, label: fullName(d) }))}
+            placeholder="Rechercher un chauffeur"
             value={driver}
-            onChange={(e) => setDriver(e.target.value)}
+            onChange={setDriver}
+            invalid={touched && !driver}
           />
         </Field>
         <Field label="Début" htmlFor="asg-start" required>

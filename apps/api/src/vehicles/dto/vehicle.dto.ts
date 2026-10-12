@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { Transform, type TransformFnParams } from 'class-transformer';
 import {
-  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -14,7 +13,7 @@ import {
 } from 'class-validator';
 import { IsCalendarDate } from '../../common/dates';
 import { PaginationQueryDto } from '../../common/pagination';
-import { Trim } from '../../common/validators';
+import { OptionalQueryBoolean, Trim } from '../../common/validators';
 import { VehicleStatus } from '../../generated/prisma/enums';
 
 const MAX_YEAR = new Date().getUTCFullYear() + 1;
@@ -100,10 +99,11 @@ export class VehicleQueryDto extends PaginationQueryDto {
 
   /** true : véhicules qui ont au moins une alerte ; false : véhicules sans alerte. */
   @ApiPropertyOptional()
-  @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown =>
-    value === 'true' ? true : value === 'false' ? false : value,
-  )
-  @IsBoolean()
+  @OptionalQueryBoolean()
   alerts?: boolean;
+
+  /** true : véhicules affectables (en état de rouler, sans affectation en cours). */
+  @ApiPropertyOptional()
+  @OptionalQueryBoolean()
+  available?: boolean;
 }
