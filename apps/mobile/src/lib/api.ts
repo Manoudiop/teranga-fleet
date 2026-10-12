@@ -1,7 +1,11 @@
 import type { ApiErrorCode, ApiErrorResponse } from '@teranga-fleet/shared';
 import { readToken } from './session';
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+// Inlinée au build : un build EAS la prend dans l'environnement EAS du profil (voir README).
+// Le repli sur localhost ne vaut qu'en développement.
+const API_URL = (
+  process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? 'http://localhost:4000' : '')
+).replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(
@@ -37,6 +41,13 @@ export interface ApiOptions {
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = 'GET', body, query } = options;
+  if (!API_URL) {
+    throw new ApiError(
+      0,
+      'SERVICE_UNAVAILABLE',
+      'Application mal configurée : adresse du serveur absente. Contactez le support.',
+    );
+  }
   const token = options.token !== undefined ? options.token : await readToken();
   const isForm = body instanceof FormData;
 
