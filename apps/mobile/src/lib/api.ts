@@ -15,9 +15,12 @@ export class ApiError extends Error {
   }
 }
 
-/** Appelé quand l'API répond 401 (token expiré, compte supprimé) : déconnexion. */
-let onUnauthorized: (() => void) | null = null;
-export function setUnauthorizedHandler(handler: (() => void) | null) {
+/**
+ * Appelé quand l'API répond 401 (token expiré, compte désactivé, entreprise suspendue) :
+ * déconnexion, avec l'erreur pour en afficher la raison.
+ */
+let onUnauthorized: ((error: ApiError) => void) | null = null;
+export function setUnauthorizedHandler(handler: ((error: ApiError) => void) | null) {
   onUnauthorized = handler;
 }
 
@@ -65,14 +68,15 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    const error = data as Partial<ApiErrorResponse> | null;
-    if (response.status === 401 && token) onUnauthorized?.();
-    throw new ApiError(
+    const body = data as Partial<ApiErrorResponse> | null;
+    const error = new ApiError(
       response.status,
-      error?.error ?? 'INTERNAL_ERROR',
-      error?.message ?? 'Une erreur inattendue est survenue.',
-      error?.details,
+      body?.error ?? 'INTERNAL_ERROR',
+      body?.message ?? 'Une erreur inattendue est survenue.',
+      body?.details,
     );
+    if (response.status === 401 && token) onUnauthorized?.(error);
+    throw error;
   }
   return data as T;
 }

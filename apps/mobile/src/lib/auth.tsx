@@ -25,6 +25,8 @@ interface AuthContextValue {
   signOut: (reason?: string) => Promise<void>;
 }
 
+const SESSION_CUT_CODES = new Set<string>(['ACCOUNT_DISABLED', 'COMPANY_SUSPENDED']);
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -93,9 +95,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [openSession]);
 
-  // Un 401 de l'API (token révoqué, compte supprimé) renvoie à la connexion.
+  // Un 401 de l'API renvoie à la connexion ; compte désactivé et entreprise suspendue
+  // affichent le message de l'API plutôt qu'une simple expiration.
   useEffect(() => {
-    setUnauthorizedHandler(() => void signOut('Votre session a expiré. Reconnectez-vous.'));
+    setUnauthorizedHandler(
+      (error) =>
+        void signOut(
+          SESSION_CUT_CODES.has(error.code)
+            ? error.message
+            : 'Votre session a expiré. Reconnectez-vous.',
+        ),
+    );
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 

@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { ServiceCard } from '@/components/service-card';
 import {
@@ -80,6 +81,12 @@ export default function ProfileScreen() {
           )}
         </>
       )}
+      <Button
+        title="Changer mon mot de passe"
+        variant="secondary"
+        icon="key-outline"
+        onPress={() => router.push('/password')}
+      />
       <Button
         title="Se déconnecter"
         variant="danger"

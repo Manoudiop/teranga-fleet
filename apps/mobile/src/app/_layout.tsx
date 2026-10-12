@@ -44,6 +44,7 @@ function RootNavigator() {
           name="service-consent"
           options={{ title: 'Partage de position', presentation: 'modal' }}
         />
+        <Stack.Screen name="password" options={{ title: 'Mot de passe', presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
