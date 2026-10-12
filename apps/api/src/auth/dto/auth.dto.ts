@@ -70,3 +70,15 @@ export class RegisterCompanyDto {
   @Type(() => RegisterManagerDto)
   gestionnaire: RegisterManagerDto;
 }
+
+export class ChangePasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty({ message: 'Le mot de passe actuel est obligatoire' })
+  @MaxLength(128)
+  currentPassword: string;
+
+  @ApiProperty({ description: '8 caractères minimum, avec au moins une lettre et un chiffre' })
+  @StrongPassword()
+  newPassword: string;
+}

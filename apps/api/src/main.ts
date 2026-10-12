@@ -49,6 +49,7 @@ async function bootstrap() {
         )
         .addTag('Alerts', 'Alertes de la flotte')
         .addTag('Dashboard', 'Indicateurs du gestionnaire')
+        .addTag('Team', "Équipe : gestionnaires de l'entreprise")
         .addTag('Admin', 'Administration de la plateforme (rôle ADMIN)')
         .addTag('Health', "État de l'API")
         .build(),

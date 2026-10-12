@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AccountsModule } from './accounts/accounts.module';
 import { AdminModule } from './admin/admin.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AssignmentsModule } from './assignments/assignments.module';
@@ -38,6 +39,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     AlertsModule,
     DashboardModule,
     AdminModule,
+    AccountsModule,
   ],
   controllers: [HealthController],
 })

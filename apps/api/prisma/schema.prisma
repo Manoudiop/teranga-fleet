@@ -77,13 +77,15 @@ enum IncidentStatus {
 // ---------------------------------------------------------------------------
 
 model Company {
-  id        String   @id @default(uuid()) @db.Uuid
-  nom       String
-  email     String
-  telephone String?
-  adresse   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(uuid()) @db.Uuid
+  nom         String
+  email       String
+  telephone   String?
+  adresse     String?
+  /// Entreprise suspendue par l'administrateur de la plateforme : plus aucun compte ne peut se connecter.
+  suspendedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   users              User[]
   vehicles           Vehicle[]
@@ -99,17 +101,19 @@ model Company {
 }
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  nom       String
+  id         String    @id @default(uuid()) @db.Uuid
+  nom        String
   /// Toujours stocké en minuscules. Unique sur toute la plateforme.
-  email     String   @unique
+  email      String    @unique
   /// Hash argon2. Ne doit jamais sortir de l'API.
-  password  String
-  role      Role
+  password   String
+  role       Role
   /// Null uniquement pour les ADMIN de la plateforme.
-  companyId String?  @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  companyId  String?   @db.Uuid
+  /// Compte désactivé : connexion refusée et sessions en cours invalidées.
+  disabledAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   driver  Driver?

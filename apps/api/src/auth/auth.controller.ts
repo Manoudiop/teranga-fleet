@@ -1,10 +1,10 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { ALL_ROLES, type AuthUser } from './auth-user';
 import { AuthService } from './auth.service';
 import { CurrentUser, Public, Roles } from './decorators';
-import { LoginDto, RegisterCompanyDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, RegisterCompanyDto } from './dto/auth.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -38,5 +38,15 @@ export class AuthController {
   @ApiOperation({ summary: "Profil de l'utilisateur connecté" })
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @Put('password')
+  @Roles(...ALL_ROLES)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottlerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change son propre mot de passe (mot de passe actuel exigé)' })
+  async changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
+    await this.auth.changePassword(user.id, dto);
   }
 }

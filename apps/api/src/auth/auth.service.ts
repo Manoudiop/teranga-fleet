@@ -2,11 +2,12 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthUserResponse, LoginResponse } from '@teranga-fleet/shared';
-import { AppException, conflict } from '../common/errors/app.exception';
+import { AppException, badRequest, conflict } from '../common/errors/app.exception';
 import type { Env } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './auth-user';
-import type { LoginDto, RegisterCompanyDto } from './dto/auth.dto';
+import { accountBlock } from './account-status';
+import type { ChangePasswordDto, LoginDto, RegisterCompanyDto } from './dto/auth.dto';
 import { PasswordService } from './password.service';
 
 const userResponseSelect = {
@@ -32,6 +33,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       omit: { password: false },
+      include: { company: { select: { suspendedAt: true } } },
     });
 
     // Vérification systématique (hash factice si l'email est inconnu) et
@@ -44,7 +46,32 @@ export class AuthService {
         'Email ou mot de passe incorrect',
       );
     }
+    // Après le mot de passe : un tiers ne peut pas savoir si un compte est désactivé.
+    const block = accountBlock(user, user.company);
+    if (block) throw new AppException(HttpStatus.FORBIDDEN, block.error, block.message);
     return this.issueToken(user.id);
+  }
+
+  /** Changement de son propre mot de passe (le mot de passe actuel est exigé). */
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { password: true },
+    });
+    if (!(await this.passwords.verify(user.password, dto.currentPassword))) {
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'INVALID_CREDENTIALS',
+        'Le mot de passe actuel est incorrect',
+      );
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw badRequest("Le nouveau mot de passe doit être différent de l'actuel");
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: await this.passwords.hash(dto.newPassword) },
+    });
   }
 
   /** Crée l'entreprise et son gestionnaire dans une seule transaction. */

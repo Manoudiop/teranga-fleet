@@ -4,6 +4,8 @@ export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
   | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_DISABLED'
+  | 'COMPANY_SUSPENDED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'

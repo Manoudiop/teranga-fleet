@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { notFound } from '../common/errors/app.exception';
 import { paginated, skipTake, type PaginationQueryDto } from '../common/pagination';
 import type { Prisma } from '../generated/prisma/client';
+import { accountSelect } from '../accounts/accounts.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const companyCounts = {
@@ -69,12 +70,31 @@ export class AdminService {
       include: {
         ...companyCounts,
         users: {
-          select: { id: true, nom: true, email: true, role: true, createdAt: true },
-          orderBy: { createdAt: 'asc' },
+          select: accountSelect,
+          orderBy: [{ role: 'asc' }, { nom: 'asc' }],
         },
       },
     });
     if (!company) throw notFound('Entreprise introuvable');
     return company;
+  }
+
+  /** Suspend ou réactive une entreprise (abonnement impayé, résiliation...). */
+  async setCompanySuspended(id: string, suspended: boolean) {
+    const company = await this.prisma.company.findUnique({
+      where: { id },
+      select: { suspendedAt: true },
+    });
+    if (!company) throw notFound('Entreprise introuvable');
+    return this.prisma.company.update({
+      where: { id },
+      data: { suspendedAt: suspended ? (company.suspendedAt ?? new Date()) : null },
+      select: { id: true, nom: true, suspendedAt: true },
+    });
+  }
+
+  async assertCompanyExists(id: string) {
+    const company = await this.prisma.company.findUnique({ where: { id }, select: { id: true } });
+    if (!company) throw notFound('Entreprise introuvable');
   }
 }
