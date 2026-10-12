@@ -138,6 +138,21 @@ Aucun mot de passe n'est versionné. Tous les comptes utilisent `SEED_PASSWORD` 
 `apps/api/.env`). Si cette variable est vide, le seed génère un mot de passe aléatoire et
 l'affiche à la fin de son exécution. Le seed refuse de s'exécuter si `NODE_ENV=production`.
 
+### Premier administrateur (production)
+
+Le compte ADMIN de la plateforme se crée en ligne de commande, sur le serveur de l'API. Le mot de
+passe est lu dans `ADMIN_PASSWORD` (pas en argument, pour ne pas rester dans l'historique) :
+
+```bash
+ADMIN_PASSWORD='…' node apps/api/dist/cli/create-admin.js --email admin@exemple.sn --nom "Prénom Nom"
+# en développement :
+ADMIN_PASSWORD='…' pnpm --filter @teranga-fleet/api admin:create -- --email admin@exemple.sn
+```
+
+L'administrateur crée ensuite le premier gestionnaire d'une entreprise depuis sa fiche (ou
+l'entreprise s'inscrit elle-même via `/register`) ; chaque gestionnaire ajoute ses collègues
+depuis la page **Équipe**.
+
 ## Variables d'environnement
 
 Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être commité.
@@ -176,6 +191,9 @@ L'API valide sa configuration au démarrage et refuse de démarrer si elle est i
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `EXPO_PUBLIC_API_URL` | URL de l'API vue depuis l'appareil (`http://10.0.2.2:4000` pour l'émulateur Android, IP locale du PC pour un téléphone physique) |
 
+Ce fichier ne sert qu'en développement local : il n'est pas versionné, donc pas envoyé aux builds
+EAS (voir « Builds natifs »).
+
 ## Lancement en développement
 
 ```bash
@@ -205,11 +223,13 @@ connecte est refusé avec un message l'orientant vers le dashboard web.
 **Écrans** : `/login`, `/home` (véhicule affecté, service, alertes importantes), `/my-vehicle`,
 `/mileage` (validation identique à l'API : jamais inférieur au compteur, pas de date future),
 `/incidents` et `/incident-new` (type, gravité, description, photo prise ou choisie dans la
-galerie), `/history` (relevés du chauffeur), `/profile` (permis, service, déconnexion).
+galerie), `/history` (relevés du chauffeur), `/profile` (permis, service, déconnexion) et
+`/password` (changement de son mot de passe).
 
 **Session** : le JWT est stocké dans le stockage sécurisé du téléphone (Keychain iOS / Keystore
 Android, via `expo-secure-store`), restauré au lancement, et la session se ferme à son expiration
-ou sur un 401 de l'API. Les écrans sont protégés par `Stack.Protected` (Expo Router).
+ou sur un 401 de l'API ; un compte désactivé ou une entreprise suspendue sont signalés comme tels
+à l'écran de connexion. Les écrans sont protégés par `Stack.Protected` (Expo Router).
 
 **Tester sur un téléphone** :
 
@@ -219,11 +239,30 @@ pnpm dev:mobile                                # scanner le QR code avec Expo Go
 ```
 
 Le téléphone et le PC doivent être sur le même réseau. Expo Go suffit pour tout tester, sauf la
-localisation en arrière-plan (voir ci-dessous), qui demande un build de développement :
+localisation en arrière-plan (voir ci-dessous), qui demande un build natif.
+
+### Builds natifs (EAS)
+
+`apps/mobile/eas.json` définit trois profils :
+
+| Profil        | Usage                                                                       | Distribution           |
+| ------------- | --------------------------------------------------------------------------- | ---------------------- |
+| `development` | Build de développement (`expo-dev-client`) : tester la localisation de fond | interne                |
+| `preview`     | Version de test complète, APK Android installable directement               | interne                |
+| `production`  | Publication sur les stores (numéro de build incrémenté automatiquement)     | Play Store / App Store |
+
+Chaque profil lit ses variables dans l'environnement EAS du même nom. `EXPO_PUBLIC_API_URL` est
+obligatoire : une application compilée sans elle affiche « Application mal configurée » au lieu
+d'appeler `localhost`. Hors développement, l'API doit être servie en **HTTPS** (iOS et Android
+bloquent le HTTP en clair dans les builds de release).
 
 ```bash
 cd apps/mobile
-npx eas build --profile development --platform android   # compte Expo (gratuit) requis
+npx eas-cli login                                    # compte Expo (gratuit)
+npx eas-cli init                                     # relie le projet (ajoute projectId à app.json)
+npx eas-cli env:create --environment preview --name EXPO_PUBLIC_API_URL --value https://api.exemple.sn --visibility plaintext
+npx eas-cli build --profile development --platform android
+npx eas-cli build --profile preview --platform android
 ```
 
 Identifiants applicatifs : `sn.terangafleet.chauffeur` (Android et iOS), à adapter avant publication.
@@ -274,13 +313,17 @@ Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://loca
 
 **Pages** : `/login`, `/register`, `/dashboard`, `/map`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
 `/drivers` (+ `/new`, `/[id]`), `/assignments`, `/documents`, `/maintenance`, `/incidents`,
-`/alerts`, et `/admin` pour le rôle ADMIN. Un chauffeur qui se connecte au web est invité à
-utiliser l'application mobile.
+`/alerts`, `/team` (gestionnaires de l'entreprise : ajout, désactivation, nouveau mot de passe),
+`/account` (profil et changement de mot de passe), et pour le rôle ADMIN `/admin` (entreprises)
+et `/admin/companies/[id]` (suspension, comptes, création d'un gestionnaire). Un chauffeur qui se
+connecte au web est invité à utiliser l'application mobile.
 
 **Choix techniques** : TanStack Query (cache et invalidation après chaque écriture), React Hook
 Form + Zod (validation côté client, erreurs de l'API reportées sous les champs), Tailwind CSS 4,
 icônes `lucide-react`. Les filtres des listes sont conservés dans l'URL (liens partageables,
-bouton Retour). Les fichiers (documents, photos) passent par le relais authentifié.
+bouton Retour). Les fichiers (documents, photos) passent par le relais authentifié. Le choix
+d'un véhicule ou d'un chauffeur se fait par une liste avec recherche côté serveur (20 résultats
+à la fois) : elle reste utilisable quelle que soit la taille de la flotte.
 
 ## API
 
@@ -298,34 +341,47 @@ Toutes les routes exigent un JWT (`Authorization: Bearer <token>`), sauf `/healt
 par IP). Chaque route déclare les rôles autorisés ; une route qui n'en déclare pas est refusée à
 tous (sécurité par défaut).
 
-| Rôle         | Accès                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------- |
-| GESTIONNAIRE | Toute la flotte de son entreprise                                                     |
-| CHAUFFEUR    | Son profil, son véhicule affecté, ses relevés et ses incidents, ses alertes           |
-| ADMIN        | Statistiques globales et entreprises (`/admin/*`) ; aucun accès aux données de flotte |
+| Rôle         | Accès                                                                        |
+| ------------ | ---------------------------------------------------------------------------- |
+| GESTIONNAIRE | Toute la flotte de son entreprise et les comptes gestionnaires de son équipe |
+| CHAUFFEUR    | Son profil, son véhicule affecté, ses relevés et ses incidents, ses alertes  |
+| ADMIN        | Entreprises et comptes (`/admin/*`) ; aucun accès aux données de flotte      |
 
 Une ressource d'une autre entreprise renvoie toujours **404**, comme une ressource inexistante.
 
+**Comptes désactivés et entreprises suspendues.** Un gestionnaire peut désactiver un collègue, et
+l'administrateur n'importe quel compte ou une entreprise entière. Rien n'est supprimé : la
+connexion est refusée (403 `ACCOUNT_DISABLED` / `COMPANY_SUSPENDED`) et le contrôle est refait à
+chaque requête, si bien que les sessions en cours sont coupées immédiatement (401 avec le même
+code). Personne ne peut désactiver son propre compte. Chacun change son mot de passe avec
+`PUT /auth/password` (mot de passe actuel exigé).
+
 ### Endpoints principaux
 
-| Domaine      | Endpoints                                                                                                                 | Rôles                   |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Auth         | `POST /auth/register-company`, `POST /auth/login`, `GET /auth/me`                                                         | public / tous           |
-| Véhicules    | `POST/GET /vehicles`, `GET/PATCH/DELETE /vehicles/:id` — filtres `search`, `status`, `alerts`, pagination `page`/`limit`  | gestionnaire            |
-| Chauffeurs   | `POST/GET /drivers`, `GET/PATCH/DELETE /drivers/:id`, `PUT /drivers/:id/account` — filtres `search`, `statut`, `permis`   | gestionnaire            |
-|              | `GET /drivers/me`, `GET /drivers/me/mileage`                                                                              | chauffeur               |
-| Documents    | `POST/GET /vehicles/:vehicleId/documents`, `GET /documents`, `GET/PATCH/DELETE /documents/:id`, `GET /documents/:id/file` | gestionnaire            |
-| Maintenance  | `POST/GET /maintenance`, `GET /maintenance/due`, `GET/PATCH/DELETE /maintenance/:id`                                      | gestionnaire            |
-| Affectations | `POST/GET /assignments`, `GET/PATCH /assignments/:id`, `POST /assignments/:id/end`                                        | gestionnaire            |
-| Kilométrage  | `POST /mileage`                                                                                                           | chauffeur, gestionnaire |
-|              | `GET /vehicles/:vehicleId/mileage`                                                                                        | gestionnaire            |
-| Localisation | `POST /locations` (lot de positions du véhicule affecté)                                                                  | chauffeur               |
-|              | `GET /locations/latest`, `GET /vehicles/:vehicleId/locations?from=&to=`                                                   | gestionnaire            |
-| Incidents    | `POST/GET /incidents`, `GET /incidents/:id`, `POST/GET /incidents/:id/photo`                                              | chauffeur, gestionnaire |
-|              | `PATCH /incidents/:id` (statut, gravité, notes, clôture)                                                                  | gestionnaire            |
-| Alertes      | `GET /alerts` — filtres `vehicleId`, `severity`, `type`                                                                   | gestionnaire, chauffeur |
-| Dashboard    | `GET /dashboard/summary`, `GET /dashboard/maintenance-costs?months=6`                                                     | gestionnaire            |
-| Admin        | `GET /admin/stats`, `GET /admin/companies`, `GET /admin/companies/:id`                                                    | admin                   |
+| Domaine      | Endpoints                                                                                                                            | Rôles                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| Auth         | `POST /auth/register-company`, `POST /auth/login`                                                                                    | public                  |
+|              | `GET /auth/me`, `PUT /auth/password`                                                                                                 | tous                    |
+| Équipe       | `GET/POST /users`, `PATCH /users/:id` (désactivation), `PUT /users/:id/password`                                                     | gestionnaire            |
+| Véhicules    | `POST/GET /vehicles`, `GET/PATCH/DELETE /vehicles/:id` — filtres `search`, `status`, `alerts`, `available`, pagination               | gestionnaire            |
+| Chauffeurs   | `POST/GET /drivers`, `GET/PATCH/DELETE /drivers/:id`, `PUT /drivers/:id/account` — filtres `search`, `statut`, `permis`, `available` | gestionnaire            |
+|              | `GET /drivers/me`, `GET /drivers/me/mileage`                                                                                         | chauffeur               |
+| Documents    | `POST/GET /vehicles/:vehicleId/documents`, `GET /documents`, `GET/PATCH/DELETE /documents/:id`, `GET /documents/:id/file`            | gestionnaire            |
+| Maintenance  | `POST/GET /maintenance`, `GET /maintenance/due`, `GET/PATCH/DELETE /maintenance/:id`                                                 | gestionnaire            |
+| Affectations | `POST/GET /assignments`, `GET/PATCH /assignments/:id`, `POST /assignments/:id/end`                                                   | gestionnaire            |
+| Kilométrage  | `POST /mileage`                                                                                                                      | chauffeur, gestionnaire |
+|              | `GET /vehicles/:vehicleId/mileage`                                                                                                   | gestionnaire            |
+| Localisation | `POST /locations` (lot de positions du véhicule affecté)                                                                             | chauffeur               |
+|              | `GET /locations/latest`, `GET /vehicles/:vehicleId/locations?from=&to=`                                                              | gestionnaire            |
+| Incidents    | `POST/GET /incidents`, `GET /incidents/:id`, `POST/GET /incidents/:id/photo`                                                         | chauffeur, gestionnaire |
+|              | `PATCH /incidents/:id` (statut, gravité, notes, clôture)                                                                             | gestionnaire            |
+| Alertes      | `GET /alerts` — filtres `vehicleId`, `severity`, `type`                                                                              | gestionnaire, chauffeur |
+| Dashboard    | `GET /dashboard/summary`, `GET /dashboard/maintenance-costs?months=6`                                                                | gestionnaire            |
+| Admin        | `GET /admin/stats`, `GET /admin/companies`, `GET /admin/companies/:id`, `PATCH /admin/companies/:id/status`                          | admin                   |
+|              | `POST /admin/companies/:id/managers`, `PATCH /admin/users/:id`, `PUT /admin/users/:id/password`                                      | admin                   |
+
+`available=true` (véhicules et chauffeurs) ne garde que ce qui peut être affecté : véhicule pas
+hors service, chauffeur actif, et aucune affectation en cours.
 
 Uploads (`multipart/form-data`) : champ `fichier` pour les documents (PDF, JPG, PNG), champ
 `photo` pour les incidents (JPG, PNG). Le type réel est vérifié par la signature du fichier, la
@@ -342,7 +398,7 @@ taille est limitée par `UPLOAD_MAX_SIZE_MB`, et les fichiers ne sont jamais ser
 ```
 
 `message` est en français et affichable tel quel. `error` est un code stable (`VALIDATION_ERROR`,
-`INVALID_CREDENTIALS`, `NOT_FOUND`, `CONFLICT`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`,
+`INVALID_CREDENTIALS`, `ACCOUNT_DISABLED`, `COMPANY_SUSPENDED`, `NOT_FOUND`, `CONFLICT`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`,
 `NO_ACTIVE_ASSIGNMENT`, `MILEAGE_TOO_LOW`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`,
 `TOO_MANY_REQUESTS`...). Les erreurs de validation ajoutent `details` (messages par champ).
 
