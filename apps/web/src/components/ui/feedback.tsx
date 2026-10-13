@@ -1,7 +1,14 @@
 'use client';
 
 import type { PaginatedResponse } from '@teranga-fleet/shared';
-import { AlertTriangle, ChevronLeft, ChevronRight, Inbox, Loader2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Inbox,
+  Loader2,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { errorMessage } from '@/lib/api';
 import { Button, cn } from './primitives';
@@ -68,6 +75,19 @@ export function FormError({ error }: { error: unknown }) {
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span>{errorMessage(error)}</span>
+    </div>
+  );
+}
+
+/** Confirmation dans un formulaire (demande envoyée, mot de passe changé). */
+export function FormNotice({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="flex gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-600/15"
+      role="status"
+    >
+      <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <span>{children}</span>
     </div>
   );
 }

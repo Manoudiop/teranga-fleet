@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -74,6 +75,9 @@ export default function LoginScreen() {
             onSubmitEditing={() => void submit()}
           />
           <Button title="Se connecter" onPress={() => void submit()} loading={loading} />
+          <Link href="/forgot-password" style={styles.link}>
+            Mot de passe oublié ?
+          </Link>
           <Text style={styles.help}>Identifiants fournis par votre gestionnaire de flotte.</Text>
         </View>
       </KeyboardAvoidingView>
@@ -90,4 +94,5 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: colors.textMuted },
   form: { gap: spacing.lg },
   help: { fontSize: 13, color: colors.textMuted, textAlign: 'center' },
+  link: { fontSize: 15, fontWeight: '600', color: colors.brand, textAlign: 'center' },
 });

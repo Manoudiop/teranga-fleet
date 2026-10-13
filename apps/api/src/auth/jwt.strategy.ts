@@ -5,7 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AppException } from '../common/errors/app.exception';
 import type { Env } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
-import { accountBlock } from './account-status';
+import { accountBlock, sessionRevoked } from './account-status';
 import type { AuthUser, JwtPayload } from './auth-user';
 
 /**
@@ -37,11 +37,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: true,
         companyId: true,
         disabledAt: true,
+        passwordChangedAt: true,
         company: { select: { suspendedAt: true } },
         driver: { select: { id: true } },
       },
     });
-    if (!user) throw new UnauthorizedException();
+    // Compte supprimé, ou mot de passe réinitialisé depuis l'émission du token.
+    if (!user || sessionRevoked(payload.iat, user.passwordChangedAt)) {
+      throw new UnauthorizedException();
+    }
     // Compte désactivé ou entreprise suspendue pendant la session : 401, le
     // client se déconnecte et affiche la raison.
     const block = accountBlock(user, user.company);

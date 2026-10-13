@@ -1,5 +1,8 @@
 import { PasswordService } from './password.service';
 
+// argon2 est lent par conception : sous la charge des suites en parallèle, 5 s ne suffisent pas toujours.
+jest.setTimeout(20_000);
+
 describe('PasswordService', () => {
   const service = new PasswordService();
 

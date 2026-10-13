@@ -68,6 +68,11 @@ export function LoginForm() {
           {...register('password')}
         />
       </Field>
+      <p className="-mt-3 text-right text-sm">
+        <Link href="/forgot-password" className="font-medium text-brand-700 hover:text-brand-800">
+          Mot de passe oublié ?
+        </Link>
+      </p>
       <Button type="submit" className="w-full" loading={isSubmitting}>
         Se connecter
       </Button>

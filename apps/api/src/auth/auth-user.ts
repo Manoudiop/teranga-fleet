@@ -14,6 +14,8 @@ export interface AuthUser {
 /** Contenu signé du JWT. Le reste est relu en base à chaque requête. */
 export interface JwtPayload {
   sub: string;
+  /** Date d'émission en secondes, ajoutée par jsonwebtoken. */
+  iat?: number;
 }
 
 export const ALL_ROLES = [Role.ADMIN, Role.GESTIONNAIRE, Role.CHAUFFEUR];

@@ -159,23 +159,26 @@ Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être c
 
 ### API (`apps/api/.env`)
 
-| Variable                                                                  | Description                                                                     |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `NODE_ENV`                                                                | `development`, `test` ou `production`                                           |
-| `PORT`                                                                    | Port HTTP de l'API (4000 par défaut)                                            |
-| `CORS_ORIGINS`                                                            | Origines autorisées, séparées par des virgules. Obligatoire en production.      |
-| `DATABASE_URL`                                                            | Chaîne de connexion PostgreSQL (obligatoire)                                    |
-| `SEED_PASSWORD`                                                           | Mot de passe des comptes de démonstration (optionnel)                           |
-| `JWT_SECRET` / `JWT_EXPIRES_IN`                                           | Signature et durée de validité des tokens (phase 3)                             |
-| `STORAGE_DRIVER`                                                          | `local` (développement) ou `s3` (production) (phase 6)                          |
-| `UPLOAD_DIR` / `UPLOAD_MAX_SIZE_MB`                                       | Dossier de stockage local et taille maximale des fichiers                       |
-| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` | Stockage S3-compatible                                                          |
-| `ALERT_THRESHOLD_DAYS`                                                    | Seuil des alertes « expire bientôt » et « entretien à prévoir » (30 par défaut) |
-| `MAINTENANCE_KM_MARGIN`                                                   | Marge en km avant une échéance d'entretien kilométrique (1000 par défaut)       |
-| `AUTH_RATE_LIMIT`                                                         | Tentatives de login / inscription par minute et par IP (10 par défaut)          |
-| `SWAGGER_ENABLED`                                                         | Active la documentation sur /docs (par défaut : hors production uniquement)     |
-| `LOCATION_RETENTION_DAYS`                                                 | Conservation des positions GPS, en jours (90 par défaut)                        |
-| `TRUST_PROXY`                                                             | Proxies de confiance pour lire l'IP réelle du client (`loopback` par défaut)    |
+| Variable                                                                  | Description                                                                                      |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`                                                                | `development`, `test` ou `production`                                                            |
+| `PORT`                                                                    | Port HTTP de l'API (4000 par défaut)                                                             |
+| `CORS_ORIGINS`                                                            | Origines autorisées, séparées par des virgules. Obligatoire en production.                       |
+| `DATABASE_URL`                                                            | Chaîne de connexion PostgreSQL (obligatoire)                                                     |
+| `SEED_PASSWORD`                                                           | Mot de passe des comptes de démonstration (optionnel)                                            |
+| `JWT_SECRET` / `JWT_EXPIRES_IN`                                           | Signature et durée de validité des tokens (phase 3)                                              |
+| `STORAGE_DRIVER`                                                          | `local` (développement) ou `s3` (production) (phase 6)                                           |
+| `UPLOAD_DIR` / `UPLOAD_MAX_SIZE_MB`                                       | Dossier de stockage local et taille maximale des fichiers                                        |
+| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` | Stockage S3-compatible                                                                           |
+| `ALERT_THRESHOLD_DAYS`                                                    | Seuil des alertes « expire bientôt » et « entretien à prévoir » (30 par défaut)                  |
+| `MAINTENANCE_KM_MARGIN`                                                   | Marge en km avant une échéance d'entretien kilométrique (1000 par défaut)                        |
+| `AUTH_RATE_LIMIT`                                                         | Tentatives de login / inscription par minute et par IP (10 par défaut)                           |
+| `SWAGGER_ENABLED`                                                         | Active la documentation sur /docs (par défaut : hors production uniquement)                      |
+| `LOCATION_RETENTION_DAYS`                                                 | Conservation des positions GPS, en jours (90 par défaut)                                         |
+| `TRUST_PROXY`                                                             | Proxies de confiance pour lire l'IP réelle du client (`loopback` par défaut)                     |
+| `SMTP_URL`                                                                | Serveur d'envoi des emails (`smtps://clé:secret@hôte:465`) ; Mailpit par défaut en développement |
+| `MAIL_FROM`                                                               | Expéditeur des emails, ex. `Teranga Fleet <no-reply@teranga-fleet.sn>`                           |
+| `WEB_URL`                                                                 | Adresse publique du dashboard, pour les liens des emails (https en production)                   |
 
 L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
 
@@ -197,7 +200,7 @@ EAS (voir « Builds natifs »).
 ## Lancement en développement
 
 ```bash
-pnpm db:up        # PostgreSQL
+pnpm db:up        # PostgreSQL et Mailpit (emails de développement : http://localhost:8026)
 pnpm dev:api      # API sur http://localhost:4000 (GET /health vérifie aussi la base)
 pnpm dev:web      # Dashboard sur http://localhost:3001
 pnpm dev:mobile   # Serveur Expo : scanner le QR code avec Expo Go
@@ -224,7 +227,8 @@ connecte est refusé avec un message l'orientant vers le dashboard web.
 `/mileage` (validation identique à l'API : jamais inférieur au compteur, pas de date future),
 `/incidents` et `/incident-new` (type, gravité, description, photo prise ou choisie dans la
 galerie), `/history` (relevés du chauffeur), `/profile` (permis, service, déconnexion) et
-`/password` (changement de son mot de passe).
+`/password` (changement de son mot de passe) et `/forgot-password` (lien de réinitialisation
+par email, ouvert ensuite dans le navigateur du téléphone).
 
 **Session** : le JWT est stocké dans le stockage sécurisé du téléphone (Keychain iOS / Keystore
 Android, via `expo-secure-store`), restauré au lancement, et la session se ferme à son expiration
@@ -311,7 +315,7 @@ Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://loca
 - `src/proxy.ts` redirige vers `/login` toute page visitée sans session ; un 401 de l'API efface le
   cookie et renvoie à la connexion.
 
-**Pages** : `/login`, `/register`, `/dashboard`, `/map`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
+**Pages** : `/login`, `/register`, `/forgot-password`, `/reset-password`, `/dashboard`, `/map`, `/vehicles` (+ `/new`, `/[id]`, `/[id]/edit`),
 `/drivers` (+ `/new`, `/[id]`), `/assignments`, `/documents`, `/maintenance`, `/incidents`,
 `/alerts`, `/team` (gestionnaires de l'entreprise : ajout, désactivation, nouveau mot de passe),
 `/account` (profil et changement de mot de passe), et pour le rôle ADMIN `/admin` (entreprises)
@@ -356,11 +360,19 @@ chaque requête, si bien que les sessions en cours sont coupées immédiatement 
 code). Personne ne peut désactiver son propre compte. Chacun change son mot de passe avec
 `PUT /auth/password` (mot de passe actuel exigé).
 
+**Mot de passe oublié.** `POST /auth/forgot-password` répond toujours 204, avant tout traitement :
+ni la réponse ni sa durée ne révèlent si un compte existe. Si le compte existe et peut se
+connecter, un email contient un lien `WEB_URL/reset-password?token=…`, valable une heure et à usage
+unique ; un seul email part toutes les deux minutes pour un même compte. Seule l'empreinte SHA-256
+du jeton est stockée. Une réinitialisation par lien, par un gestionnaire ou par l'administrateur
+ferme toutes les sessions ouvertes du compte ; un changement fait par la personne elle-même
+(mot de passe actuel saisi) conserve sa session.
+
 ### Endpoints principaux
 
 | Domaine      | Endpoints                                                                                                                            | Rôles                   |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| Auth         | `POST /auth/register-company`, `POST /auth/login`                                                                                    | public                  |
+| Auth         | `POST /auth/register-company`, `POST /auth/login`, `POST /auth/forgot-password`, `POST /auth/reset-password`                         | public                  |
 |              | `GET /auth/me`, `PUT /auth/password`                                                                                                 | tous                    |
 | Équipe       | `GET/POST /users`, `PATCH /users/:id` (désactivation), `PUT /users/:id/password`                                                     | gestionnaire            |
 | Véhicules    | `POST/GET /vehicles`, `GET/PATCH/DELETE /vehicles/:id` — filtres `search`, `status`, `alerts`, `available`, pagination               | gestionnaire            |
@@ -398,7 +410,7 @@ taille est limitée par `UPLOAD_MAX_SIZE_MB`, et les fichiers ne sont jamais ser
 ```
 
 `message` est en français et affichable tel quel. `error` est un code stable (`VALIDATION_ERROR`,
-`INVALID_CREDENTIALS`, `ACCOUNT_DISABLED`, `COMPANY_SUSPENDED`, `NOT_FOUND`, `CONFLICT`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`,
+`INVALID_CREDENTIALS`, `INVALID_RESET_TOKEN`, `ACCOUNT_DISABLED`, `COMPANY_SUSPENDED`, `NOT_FOUND`, `CONFLICT`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`,
 `NO_ACTIVE_ASSIGNMENT`, `MILEAGE_TOO_LOW`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`,
 `TOO_MANY_REQUESTS`...). Les erreurs de validation ajoutent `details` (messages par champ).
 

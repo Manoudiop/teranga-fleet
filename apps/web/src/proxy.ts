@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const SESSION_COOKIE = 'tf_session';
-const PUBLIC_PAGES = ['/login', '/register'];
+const PUBLIC_PAGES = ['/login', '/register', '/forgot-password'];
+/** Accessibles avec ou sans session (lien reçu par email, ouvert n'importe quand). */
+const OPEN_PAGES = ['/reset-password'];
 
 /**
  * Redirige vers /login toute page protégée visitée sans session, et vers le
@@ -12,6 +14,7 @@ export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   const isPublic = PUBLIC_PAGES.some((page) => pathname === page);
+  if (OPEN_PAGES.includes(pathname)) return NextResponse.next();
 
   if (!hasSession && !isPublic) {
     const url = new URL('/login', request.url);

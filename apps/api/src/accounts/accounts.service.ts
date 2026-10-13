@@ -82,7 +82,8 @@ export class AccountsService {
     await this.getVisible(scope, id);
     await this.prisma.user.update({
       where: { id },
-      data: { password: await this.passwords.hash(password) },
+      // Réinitialisation par un tiers : les sessions ouvertes du compte sont fermées.
+      data: { password: await this.passwords.hash(password), passwordChangedAt: new Date() },
     });
   }
 

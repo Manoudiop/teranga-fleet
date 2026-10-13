@@ -105,14 +105,17 @@ export function AccountsTable({
                   )}
                 </Td>
                 <Td className="text-right whitespace-nowrap">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<KeyRound className="size-4" />}
-                    onClick={() => setResetting(account)}
-                    aria-label={`Nouveau mot de passe pour ${account.nom}`}
-                    title="Nouveau mot de passe"
-                  />
+                  {/* Son propre mot de passe se change dans « Mon compte » (mot de passe actuel exigé). */}
+                  {!self && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<KeyRound className="size-4" />}
+                      onClick={() => setResetting(account)}
+                      aria-label={`Nouveau mot de passe pour ${account.nom}`}
+                      title="Nouveau mot de passe"
+                    />
+                  )}
                   {!self &&
                     (account.disabledAt ? (
                       <Button
@@ -195,7 +198,7 @@ export function PasswordModal({
       open
       onClose={onClose}
       title={`Nouveau mot de passe pour ${name}`}
-      description="Communiquez-le à la personne : elle pourra le changer depuis « Mon compte »."
+      description="Communiquez-le à la personne : elle pourra le changer depuis « Mon compte ». Ses sessions ouvertes seront fermées."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

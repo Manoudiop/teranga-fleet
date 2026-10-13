@@ -25,7 +25,12 @@ function isSameOrigin(request: NextRequest): boolean {
   return !origin || new URL(origin).host === request.headers.get('host');
 }
 
-const RELAYED_AUTH_ROUTES = new Set(['auth/me', 'auth/password']);
+const RELAYED_AUTH_ROUTES = new Set([
+  'auth/me',
+  'auth/password',
+  'auth/forgot-password',
+  'auth/reset-password',
+]);
 
 async function relay(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;

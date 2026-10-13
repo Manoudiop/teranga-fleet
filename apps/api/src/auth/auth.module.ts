@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './jwt.strategy';
+import { PasswordResetService } from './password-reset.service';
 import { PasswordService } from './password.service';
 
 /**
@@ -34,7 +35,8 @@ function toJwtExpiresIn(value: string): JwtSignOptions['expiresIn'] {
         },
       }),
     }),
-    // Limite appliquée uniquement aux routes qui utilisent ThrottlerGuard (login, inscription).
+    // Limite appliquée uniquement aux routes qui utilisent ThrottlerGuard (connexion,
+    // inscription, mot de passe oublié).
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => [
@@ -46,6 +48,7 @@ function toJwtExpiresIn(value: string): JwtSignOptions['expiresIn'] {
   providers: [
     AuthService,
     PasswordService,
+    PasswordResetService,
     JwtStrategy,
     // Ordre important : authentification d'abord, contrôle des rôles ensuite.
     { provide: APP_GUARD, useClass: JwtAuthGuard },

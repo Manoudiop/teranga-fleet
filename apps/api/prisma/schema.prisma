@@ -101,25 +101,45 @@ model Company {
 }
 
 model User {
-  id         String    @id @default(uuid()) @db.Uuid
-  nom        String
+  id                String    @id @default(uuid()) @db.Uuid
+  nom               String
   /// Toujours stocké en minuscules. Unique sur toute la plateforme.
-  email      String    @unique
+  email             String    @unique
   /// Hash argon2. Ne doit jamais sortir de l'API.
-  password   String
-  role       Role
+  password          String
+  role              Role
   /// Null uniquement pour les ADMIN de la plateforme.
-  companyId  String?   @db.Uuid
+  companyId         String?   @db.Uuid
   /// Compte désactivé : connexion refusée et sessions en cours invalidées.
-  disabledAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  disabledAt        DateTime?
+  /// Dernière réinitialisation du mot de passe (lien email, gestionnaire, admin) :
+  /// les tokens émis avant sont refusés.
+  passwordChangedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  driver  Driver?
+  company             Company?             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  driver              Driver?
+  passwordResetTokens PasswordResetToken[]
 
   @@index([companyId])
   @@map("users")
+}
+
+/// Lien « mot de passe oublié ». Seule l'empreinte SHA-256 du jeton est stockée :
+/// une fuite de la base ne permet pas de réinitialiser un compte.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model Vehicle {

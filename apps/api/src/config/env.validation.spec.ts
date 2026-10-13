@@ -72,4 +72,36 @@ describe('validateEnv', () => {
     });
     expect(env.STORAGE_DRIVER).toBe('s3');
   });
+
+  describe('emails', () => {
+    const production = { ...base, NODE_ENV: 'production', CORS_ORIGINS: 'https://app.exemple.sn' };
+    const mail = {
+      SMTP_URL: 'smtps://cle:secret@smtp-relay.exemple.com:465',
+      MAIL_FROM: 'Teranga Fleet <no-reply@exemple.sn>',
+      WEB_URL: 'https://app.exemple.sn/',
+    };
+
+    it('utilise Mailpit et le dashboard local par défaut en développement', () => {
+      expect(validateEnv(base)).toMatchObject({
+        MAIL_DRIVER: 'smtp',
+        SMTP_URL: 'smtp://localhost:1026',
+        WEB_URL: 'http://localhost:3001',
+      });
+    });
+
+    it('exige le SMTP, l’expéditeur et une WEB_URL https en production', () => {
+      expect(() => validateEnv(production)).toThrow(/SMTP_URL[\s\S]*MAIL_FROM[\s\S]*WEB_URL/);
+      expect(() =>
+        validateEnv({ ...production, ...mail, WEB_URL: 'http://app.exemple.sn' }),
+      ).toThrow(/WEB_URL/);
+      // La barre finale est retirée pour construire les liens.
+      expect(validateEnv({ ...production, ...mail }).WEB_URL).toBe('https://app.exemple.sn');
+    });
+
+    it('refuse le pilote memory en production', () => {
+      expect(() => validateEnv({ ...production, ...mail, MAIL_DRIVER: 'memory' })).toThrow(
+        /MAIL_DRIVER/,
+      );
+    });
+  });
 });

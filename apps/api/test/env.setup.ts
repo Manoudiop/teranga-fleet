@@ -8,3 +8,5 @@ process.env.AUTH_RATE_LIMIT = process.env.AUTH_RATE_LIMIT ?? '1000';
 process.env.UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads-test';
 process.env.STORAGE_DRIVER = 'local';
 process.env.UPLOAD_MAX_SIZE_MB = '1';
+// Les emails sont gardés en mémoire et lus par les tests (MemoryMailService).
+process.env.MAIL_DRIVER = 'memory';

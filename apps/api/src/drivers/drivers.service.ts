@@ -188,9 +188,10 @@ export class DriversService {
 
     const password = await this.passwords.hash(dto.password);
     if (driver.user) {
+      // Nouveaux identifiants (téléphone perdu, départ...) : les sessions ouvertes sont fermées.
       await this.prisma.user.update({
         where: { id: driver.user.id },
-        data: { email: dto.email, password },
+        data: { email: dto.email, password, passwordChangedAt: new Date() },
       });
     } else {
       await this.prisma.$transaction(async (tx) => {

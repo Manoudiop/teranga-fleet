@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { NormalizedEmail, StrongPassword, Trim } from '../../common/validators';
 
 export class LoginDto {
@@ -81,4 +88,22 @@ export class ChangePasswordDto {
   @ApiProperty({ description: '8 caractères minimum, avec au moins une lettre et un chiffre' })
   @StrongPassword()
   newPassword: string;
+}
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'gestionnaire@teranga-logistique.example' })
+  @NormalizedEmail()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  /** Jeton reçu dans le lien envoyé par email. */
+  @ApiProperty()
+  @IsString()
+  @Length(20, 100, { message: 'Lien de réinitialisation invalide' })
+  token: string;
+
+  @ApiProperty({ description: '8 caractères minimum, avec au moins une lettre et un chiffre' })
+  @StrongPassword()
+  password: string;
 }

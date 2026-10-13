@@ -33,10 +33,19 @@ export interface Env {
   AUTH_RATE_LIMIT: number;
   /** Marge en km avant le prochain entretien pour déclencher l'alerte « bientôt ». */
   MAINTENANCE_KM_MARGIN: number;
+  /** smtp : envoi réel (Mailpit en développement) ; memory : emails gardés en mémoire (tests). */
+  MAIL_DRIVER: 'smtp' | 'memory';
+  /** smtp(s)://utilisateur:motdepasse@hôte:port du fournisseur (Brevo, Resend, Mailjet...). */
+  SMTP_URL: string;
+  /** Expéditeur des emails, ex. « Teranga Fleet <no-reply@teranga-fleet.sn> ». */
+  MAIL_FROM: string;
+  /** Adresse publique du dashboard web, pour les liens envoyés par email. */
+  WEB_URL: string;
 }
 
 const NODE_ENVS = ['development', 'test', 'production'] as const;
 const STORAGE_DRIVERS = ['local', 's3'] as const;
+const MAIL_DRIVERS = ['smtp', 'memory'] as const;
 
 function str(raw: Record<string, unknown>, key: string): string {
   const value = raw[key];
@@ -107,6 +116,36 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     }
   }
 
+  const isProduction = nodeEnv === 'production';
+  const mailDriver = str(raw, 'MAIL_DRIVER') || 'smtp';
+  if (!MAIL_DRIVERS.includes(mailDriver as Env['MAIL_DRIVER'])) {
+    errors.push(`MAIL_DRIVER doit valoir ${MAIL_DRIVERS.join(' ou ')}`);
+  } else if (mailDriver === 'memory' && isProduction) {
+    errors.push('MAIL_DRIVER=memory est réservé aux tests : aucun email ne partirait');
+  }
+  // Valeurs par défaut de développement : Mailpit (docker-compose) et le dashboard local.
+  const smtpUrl = str(raw, 'SMTP_URL') || (isProduction ? '' : 'smtp://localhost:1026');
+  if (mailDriver === 'smtp' && !/^smtps?:\/\/[^/]+/.test(smtpUrl)) {
+    errors.push('SMTP_URL doit être une URL smtp:// ou smtps:// (obligatoire en production)');
+  }
+  const mailFrom =
+    str(raw, 'MAIL_FROM') ||
+    (isProduction ? '' : 'Teranga Fleet <no-reply@teranga-fleet.localhost>');
+  if (!mailFrom.includes('@')) {
+    errors.push('MAIL_FROM doit contenir une adresse email (obligatoire en production)');
+  }
+  const webUrl = (str(raw, 'WEB_URL') || (isProduction ? '' : 'http://localhost:3001')).replace(
+    /\/+$/,
+    '',
+  );
+  if (!(isProduction ? /^https:\/\/\S+$/ : /^https?:\/\/\S+$/).test(webUrl)) {
+    errors.push(
+      isProduction
+        ? "WEB_URL doit être l'adresse https:// du dashboard en production"
+        : 'WEB_URL doit être une URL http(s)://',
+    );
+  }
+
   const env: Env = {
     NODE_ENV: nodeEnv as Env['NODE_ENV'],
     PORT: port,
@@ -130,6 +169,10 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     SWAGGER_ENABLED: str(raw, 'SWAGGER_ENABLED')
       ? str(raw, 'SWAGGER_ENABLED') === 'true'
       : nodeEnv !== 'production',
+    MAIL_DRIVER: mailDriver as Env['MAIL_DRIVER'],
+    SMTP_URL: smtpUrl,
+    MAIL_FROM: mailFrom,
+    WEB_URL: webUrl,
   };
 
   if (errors.length > 0) {

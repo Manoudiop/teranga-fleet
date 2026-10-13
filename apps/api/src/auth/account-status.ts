@@ -28,3 +28,13 @@ export function accountBlock(
   }
   return null;
 }
+
+/**
+ * Token émis avant la dernière réinitialisation du mot de passe : refusé.
+ * `iat` est en secondes ; un token émis dans la même seconde reste valable.
+ */
+export function sessionRevoked(iat: number | undefined, passwordChangedAt: Date | null): boolean {
+  if (!passwordChangedAt) return false;
+  if (iat === undefined) return true;
+  return iat < Math.floor(passwordChangedAt.getTime() / 1000);
+}
