@@ -1,7 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import type { AuthUserResponse } from '@teranga-fleet/shared';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { passwordRule } from '@/components/driver-form';
@@ -10,7 +11,7 @@ import { Button, Card, CardHeader, Field, Input, PageHeader } from '@/components
 import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { applyApiErrors } from '@/lib/forms';
-import { useMe } from '@/lib/queries';
+import { keys, useMe } from '@/lib/queries';
 
 const schema = z
   .object({
@@ -76,6 +77,8 @@ export default function AccountPage() {
           </dl>
         </Card>
 
+        {me.data?.role === 'GESTIONNAIRE' && <NotificationsCard enabled={me.data.alertDigest} />}
+
         <Card>
           <CardHeader title="Changer de mot de passe" />
           <form
@@ -135,5 +138,47 @@ export default function AccountPage() {
         </Card>
       </div>
     </>
+  );
+}
+
+/** Abonnement au récapitulatif quotidien des alertes (gestionnaires). */
+function NotificationsCard({ enabled }: { enabled: boolean }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const save = useMutation({
+    mutationFn: (alertDigest: boolean) =>
+      api<AuthUserResponse>('auth/preferences', { method: 'PATCH', body: { alertDigest } }),
+    onSuccess: (user) => {
+      queryClient.setQueryData(keys.me, user);
+      toast.success(
+        user.alertDigest ? 'Récapitulatif quotidien activé' : 'Récapitulatif quotidien désactivé',
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Action impossible'),
+  });
+
+  return (
+    <Card>
+      <CardHeader title="Notifications" />
+      <label className="flex cursor-pointer items-start gap-3 px-5 py-5 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+          checked={enabled}
+          disabled={save.isPending}
+          onChange={(e) => save.mutate(e.target.checked)}
+        />
+        <span>
+          <span className="block font-medium text-slate-900">
+            Récapitulatif quotidien des alertes par email
+          </span>
+          <span className="block text-slate-500">
+            Chaque matin, la liste des alertes critiques et à surveiller de la flotte (documents,
+            permis, entretiens, incidents), avec les nouveautés de la veille. Aucun email les jours
+            sans alerte.
+          </span>
+        </span>
+      </label>
+    </Card>
   );
 }

@@ -41,6 +41,8 @@ export interface Env {
   MAIL_FROM: string;
   /** Adresse publique du dashboard web, pour les liens envoyés par email. */
   WEB_URL: string;
+  /** Heure UTC (= heure de Dakar) de l'envoi du récapitulatif quotidien des alertes. */
+  ALERT_DIGEST_HOUR: number;
 }
 
 const NODE_ENVS = ['development', 'test', 'production'] as const;
@@ -173,6 +175,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     SMTP_URL: smtpUrl,
     MAIL_FROM: mailFrom,
     WEB_URL: webUrl,
+    ALERT_DIGEST_HOUR: int(raw, 'ALERT_DIGEST_HOUR', 7, 0, 23, errors),
   };
 
   if (errors.length > 0) {

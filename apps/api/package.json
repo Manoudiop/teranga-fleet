@@ -17,6 +17,7 @@
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "test:e2e:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --coverage",
     "admin:create": "tsx src/cli/create-admin.ts",
+    "alerts:digest": "nest start --entryFile cli/send-alert-digest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

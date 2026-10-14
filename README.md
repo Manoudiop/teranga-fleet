@@ -179,6 +179,7 @@ Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être c
 | `SMTP_URL`                                                                | Serveur d'envoi des emails (`smtps://clé:secret@hôte:465`) ; Mailpit par défaut en développement |
 | `MAIL_FROM`                                                               | Expéditeur des emails, ex. `Teranga Fleet <no-reply@teranga-fleet.sn>`                           |
 | `WEB_URL`                                                                 | Adresse publique du dashboard, pour les liens des emails (https en production)                   |
+| `ALERT_DIGEST_HOUR`                                                       | Heure d'envoi du récapitulatif quotidien des alertes, en UTC = heure de Dakar (7 par défaut)     |
 
 L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
 
@@ -302,6 +303,28 @@ cliente doit informer ses chauffeurs et effectuer les formalités auprès de la 
 commercial intensif : utiliser un fournisseur de tuiles (MapTiler, Stadia, etc.) ou un serveur
 de tuiles hébergé.
 
+## Récapitulatif quotidien des alertes
+
+Chaque jour à `ALERT_DIGEST_HOUR` heures (UTC, soit l'heure de Dakar ; 7 h par défaut), chaque
+gestionnaire actif reçoit par email les alertes **critiques** et **à surveiller** de sa flotte,
+regroupées par gravité. Les alertes apparues depuis le récapitulatif précédent sont marquées
+« Nouveau ». Aucun email n'est envoyé les jours sans alerte, ni aux entreprises suspendues, ni aux
+chauffeurs.
+
+- **Désabonnement** : case « Récapitulatif quotidien des alertes » dans **Mon compte**, lien en bas
+  de chaque email.
+- **Un seul envoi par jour et par entreprise**, même avec plusieurs instances de l'API ou après un
+  redémarrage : l'envoi est réservé en base (table `alert_digests`, unique par entreprise et par
+  jour). Un envoi manqué pendant un arrêt de l'API est rattrapé à son démarrage.
+- **Envoi manuel** (renvoi à un client, test) ; les entreprises déjà servies le jour même sont
+  ignorées :
+
+```bash
+node apps/api/dist/cli/send-alert-digest.js [--company <id>]
+# en développement :
+pnpm --filter @teranga-fleet/api alerts:digest -- --company <id>
+```
+
 ## Dashboard web
 
 Application Next.js 16 (App Router) destinée aux gestionnaires, sur http://localhost:3001.
@@ -374,6 +397,7 @@ ferme toutes les sessions ouvertes du compte ; un changement fait par la personn
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
 | Auth         | `POST /auth/register-company`, `POST /auth/login`, `POST /auth/forgot-password`, `POST /auth/reset-password`                         | public                  |
 |              | `GET /auth/me`, `PUT /auth/password`                                                                                                 | tous                    |
+|              | `PATCH /auth/preferences` (récapitulatif quotidien des alertes)                                                                      | gestionnaire            |
 | Équipe       | `GET/POST /users`, `PATCH /users/:id` (désactivation), `PUT /users/:id/password`                                                     | gestionnaire            |
 | Véhicules    | `POST/GET /vehicles`, `GET/PATCH/DELETE /vehicles/:id` — filtres `search`, `status`, `alerts`, `available`, pagination               | gestionnaire            |
 | Chauffeurs   | `POST/GET /drivers`, `GET/PATCH/DELETE /drivers/:id`, `PUT /drivers/:id/account` — filtres `search`, `statut`, `permis`, `available` | gestionnaire            |

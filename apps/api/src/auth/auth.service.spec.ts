@@ -6,6 +6,9 @@ import type { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { PasswordService } from './password.service';
 
+// argon2 est lent par conception : sous la charge des suites en parallèle, 5 s ne suffisent pas toujours.
+jest.setTimeout(20_000);
+
 describe('AuthService', () => {
   const passwords = new PasswordService();
   let hash: string;

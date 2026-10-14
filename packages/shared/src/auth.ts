@@ -9,6 +9,8 @@ export interface AuthUserResponse {
   company: { id: string; nom: string } | null;
   /** Fiche chauffeur liée au compte (rôle CHAUFFEUR uniquement). */
   driver: { id: string; nom: string; prenom: string } | null;
+  /** Gestionnaire : reçoit le récapitulatif quotidien des alertes par email. */
+  alertDigest: boolean;
 }
 
 export interface LoginResponse {

@@ -7,7 +7,12 @@ import type { Env } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './auth-user';
 import { accountBlock } from './account-status';
-import type { ChangePasswordDto, LoginDto, RegisterCompanyDto } from './dto/auth.dto';
+import type {
+  ChangePasswordDto,
+  LoginDto,
+  PreferencesDto,
+  RegisterCompanyDto,
+} from './dto/auth.dto';
 import { PasswordService } from './password.service';
 
 const userResponseSelect = {
@@ -17,6 +22,7 @@ const userResponseSelect = {
   role: true,
   company: { select: { id: true, nom: true } },
   driver: { select: { id: true, nom: true, prenom: true } },
+  alertDigest: true,
 } as const;
 
 @Injectable()
@@ -50,6 +56,15 @@ export class AuthService {
     const block = accountBlock(user, user.company);
     if (block) throw new AppException(HttpStatus.FORBIDDEN, block.error, block.message);
     return this.issueToken(user.id);
+  }
+
+  /** Préférences de notification du compte connecté. */
+  async updatePreferences(userId: string, dto: PreferencesDto): Promise<AuthUserResponse> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { alertDigest: dto.alertDigest },
+      select: userResponseSelect,
+    });
   }
 
   /** Changement de son propre mot de passe (le mot de passe actuel est exigé). */

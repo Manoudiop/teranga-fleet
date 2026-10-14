@@ -1,3 +1,4 @@
+import type { DigestItem } from '../alerts/digest-rules';
 import type { MailMessage } from './mail.service';
 
 type Content = Omit<MailMessage, 'to'>;
@@ -55,6 +56,97 @@ export function passwordResetEmail(input: { nom: string; link: string; minutes: 
 ${button('Choisir un nouveau mot de passe', input.link)}
 <p style="font-size:13px;color:#475569">Ce lien est valable ${input.minutes} minutes et ne peut servir qu'une fois.
 Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe reste inchangé.</p>`,
+  );
+  return { subject, text, html };
+}
+
+/** Au-delà, l'email renvoie vers la page Alertes plutôt que de tout lister. */
+export const DIGEST_MAX_ITEMS = 40;
+
+const plural = (n: number, singular: string, pluralForm: string) =>
+  `${n} ${n > 1 ? pluralForm : singular}`;
+
+/** « 2 alertes critiques et 1 à surveiller » */
+export function digestSummary(items: DigestItem[]): string {
+  const critical = items.filter((i) => i.severity === 'CRITICAL').length;
+  const warning = items.length - critical;
+  const parts = [
+    critical && plural(critical, 'alerte critique', 'alertes critiques'),
+    warning && `${critical ? warning : plural(warning, 'alerte', 'alertes')} à surveiller`,
+  ].filter(Boolean);
+  return parts.join(' et ');
+}
+
+export function alertDigestEmail(input: {
+  companyName: string;
+  recipientName: string;
+  items: DigestItem[];
+  alertsUrl: string;
+  accountUrl: string;
+}): Content {
+  const { items } = input;
+  const summary = digestSummary(items);
+  const fresh = items.filter((i) => i.isNew).length;
+  const shown = items.slice(0, DIGEST_MAX_ITEMS);
+  const hidden = items.length - shown.length;
+  const subject = `${input.companyName} : ${summary}`;
+
+  const groups = [
+    { label: 'Critiques', color: '#b91c1c', items: shown.filter((i) => i.severity === 'CRITICAL') },
+    {
+      label: 'À surveiller',
+      color: '#b45309',
+      items: shown.filter((i) => i.severity === 'WARNING'),
+    },
+  ].filter((g) => g.items.length > 0);
+
+  const text = [
+    `Bonjour ${input.recipientName},`,
+    '',
+    `Flotte ${input.companyName} : ${summary}${fresh ? ` (dont ${fresh} nouvelle${fresh > 1 ? 's' : ''} depuis le dernier récapitulatif)` : ''}.`,
+    ...groups.flatMap((g) => [
+      '',
+      `${g.label.toUpperCase()}`,
+      ...g.items.map((i) => `- ${i.isNew ? '[Nouveau] ' : ''}${i.title} : ${i.message}`),
+    ]),
+    ...(hidden > 0 ? ['', `Et ${hidden} autre${hidden > 1 ? 's' : ''}.`] : []),
+    '',
+    `Toutes les alertes : ${input.alertsUrl}`,
+    `Ne plus recevoir ce récapitulatif : ${input.accountUrl}`,
+  ].join('\n');
+
+  const rows = (group: (typeof groups)[number]) =>
+    group.items
+      .map(
+        (i) => `<tr><td style="padding:8px 0;border-top:1px solid #e2e8f0">
+<strong>${escapeHtml(i.title)}</strong>${
+          i.isNew
+            ? ' <span style="display:inline-block;padding:1px 6px;border-radius:9px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:600">Nouveau</span>'
+            : ''
+        }<br><span style="color:#475569;font-size:14px">${escapeHtml(i.message)}</span></td></tr>`,
+      )
+      .join('');
+
+  const html = layout(
+    subject,
+    `<p>Bonjour ${escapeHtml(input.recipientName)},</p>
+<p>Flotte <strong>${escapeHtml(input.companyName)}</strong> : ${escapeHtml(summary)}${
+      fresh
+        ? `, dont <strong>${fresh} nouvelle${fresh > 1 ? 's' : ''}</strong> depuis le dernier récapitulatif`
+        : ''
+    }.</p>
+${groups
+  .map(
+    (
+      g,
+    ) => `<h2 style="margin:24px 0 4px;font-size:15px;color:${g.color}">${g.label} (${g.items.length})</h2>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows(g)}</table>`,
+  )
+  .join('\n')}
+${hidden > 0 ? `<p style="color:#475569">Et ${hidden} autre${hidden > 1 ? 's' : ''}.</p>` : ''}
+${button('Voir toutes les alertes', input.alertsUrl)}
+<p style="font-size:13px;color:#475569">Vous recevez ce récapitulatif chaque matin en tant que gestionnaire.
+<a href="${escapeHtml(input.accountUrl)}" style="color:#475569">Ne plus le recevoir</a>.</p>`,
   );
   return { subject, text, html };
 }

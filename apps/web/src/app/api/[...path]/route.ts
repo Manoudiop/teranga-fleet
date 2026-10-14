@@ -30,6 +30,7 @@ const RELAYED_AUTH_ROUTES = new Set([
   'auth/password',
   'auth/forgot-password',
   'auth/reset-password',
+  'auth/preferences',
 ]);
 
 async function relay(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {

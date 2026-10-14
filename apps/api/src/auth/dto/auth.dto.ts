@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -106,4 +107,11 @@ export class ResetPasswordDto {
   @ApiProperty({ description: '8 caractères minimum, avec au moins une lettre et un chiffre' })
   @StrongPassword()
   password: string;
+}
+
+export class PreferencesDto {
+  /** Récapitulatif quotidien des alertes par email (gestionnaires). */
+  @ApiProperty()
+  @IsBoolean()
+  alertDigest: boolean;
 }

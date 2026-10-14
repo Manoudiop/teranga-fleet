@@ -1,6 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { Role } from '../generated/prisma/enums';
 import { ALL_ROLES, type AuthUser } from './auth-user';
 import { AuthService } from './auth.service';
 import { CurrentUser, Public, Roles } from './decorators';
@@ -8,6 +19,7 @@ import {
   ChangePasswordDto,
   ForgotPasswordDto,
   LoginDto,
+  PreferencesDto,
   RegisterCompanyDto,
   ResetPasswordDto,
 } from './dto/auth.dto';
@@ -74,6 +86,14 @@ export class AuthController {
   @ApiOperation({ summary: "Profil de l'utilisateur connecté" })
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @Patch('preferences')
+  @Roles(Role.GESTIONNAIRE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Préférences de notification (récapitulatif quotidien des alertes)' })
+  updatePreferences(@CurrentUser() user: AuthUser, @Body() dto: PreferencesDto) {
+    return this.auth.updatePreferences(user.id, dto);
   }
 
   @Put('password')

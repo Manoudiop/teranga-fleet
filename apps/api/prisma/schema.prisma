@@ -96,6 +96,7 @@ model Company {
   mileageLogs        MileageLog[]
   incidents          Incident[]
   locations          VehicleLocation[]
+  alertDigests       AlertDigest[]
 
   @@map("companies")
 }
@@ -115,6 +116,8 @@ model User {
   /// Dernière réinitialisation du mot de passe (lien email, gestionnaire, admin) :
   /// les tokens émis avant sont refusés.
   passwordChangedAt DateTime?
+  /// Gestionnaire : reçoit le récapitulatif quotidien des alertes par email.
+  alertDigest       Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -140,6 +143,22 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+/// Récapitulatif quotidien des alertes envoyé à une entreprise. L'unicité
+/// (entreprise, jour) garantit un seul envoi par jour, même avec plusieurs
+/// instances de l'API ; alertIds sert à signaler les alertes nouvelles le lendemain.
+model AlertDigest {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  day       DateTime @db.Date
+  alertIds  String[]
+  sentAt    DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, day])
+  @@map("alert_digests")
 }
 
 model Vehicle {
