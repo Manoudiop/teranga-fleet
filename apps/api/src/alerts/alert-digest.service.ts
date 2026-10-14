@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { reportError } from '../common/report-error';
 import type { Env } from '../config/env.validation';
 import { Prisma } from '../generated/prisma/client';
 import { MailService } from '../mail/mail.service';
@@ -74,7 +75,7 @@ export class AlertDigestService implements OnModuleInit, OnModuleDestroy {
       const { sent } = await this.run();
       if (sent > 0) this.logger.log(`Récapitulatif des alertes envoyé à ${sent} entreprise(s)`);
     } catch (error) {
-      this.logger.error(`Récapitulatif des alertes impossible : ${String(error)}`);
+      reportError(this.logger, 'Récapitulatif des alertes', error);
     }
   }
 
@@ -101,7 +102,7 @@ export class AlertDigestService implements OnModuleInit, OnModuleDestroy {
         else result.skipped += 1;
       } catch (error) {
         result.skipped += 1;
-        this.logger.error(`Récapitulatif de l'entreprise ${company.id} : ${String(error)}`);
+        reportError(this.logger, `Récapitulatif de l'entreprise ${company.id}`, error);
       }
     }
     return result;

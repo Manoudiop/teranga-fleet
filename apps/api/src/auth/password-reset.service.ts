@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { AppException } from '../common/errors/app.exception';
+import { reportError } from '../common/report-error';
 import type { Env } from '../config/env.validation';
 import { MailService } from '../mail/mail.service';
 import { passwordResetEmail } from '../mail/templates';
@@ -81,9 +82,7 @@ export class PasswordResetService {
   /** Lance `request` sans le faire attendre à la requête HTTP ; les échecs sont journalisés. */
   requestInBackground(email: string): void {
     this.request(email).catch((error: unknown) =>
-      this.logger.error(
-        `Échec de l'envoi du lien de réinitialisation : ${error instanceof Error ? error.message : String(error)}`,
-      ),
+      reportError(this.logger, 'Envoi du lien de réinitialisation', error),
     );
   }
 

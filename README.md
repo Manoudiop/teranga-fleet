@@ -180,14 +180,18 @@ Seuls les fichiers `.env.example` sont versionnés. Aucun secret ne doit être c
 | `MAIL_FROM`                                                               | Expéditeur des emails, ex. `Teranga Fleet <no-reply@teranga-fleet.sn>`                           |
 | `WEB_URL`                                                                 | Adresse publique du dashboard, pour les liens des emails (https en production)                   |
 | `ALERT_DIGEST_HOUR`                                                       | Heure d'envoi du récapitulatif quotidien des alertes, en UTC = heure de Dakar (7 par défaut)     |
+| `LOG_LEVEL`                                                               | Niveau des logs (`info` par défaut en production, `debug` en développement)                      |
+| `SENTRY_DSN`                                                              | Suivi des erreurs Sentry (optionnel ; désactivé si vide)                                         |
 
 L'API valide sa configuration au démarrage et refuse de démarrer si elle est invalide.
 
 ### Web (`apps/web/.env.local`)
 
-| Variable  | Description                                                                         |
-| --------- | ----------------------------------------------------------------------------------- |
-| `API_URL` | URL de l'API, utilisée uniquement par le serveur Next.js (jamais par le navigateur) |
+| Variable                 | Description                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| `API_URL`                | URL de l'API, utilisée uniquement par le serveur Next.js (jamais par le navigateur) |
+| `SENTRY_DSN`             | Sentry côté serveur Next.js (optionnel)                                             |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry côté navigateur (optionnel, intégré au build)                                |
 
 ### Mobile (`apps/mobile/.env`)
 
@@ -450,6 +454,53 @@ taille est limitée par `UPLOAD_MAX_SIZE_MB`, et les fichiers ne sont jamais ser
 - **Kilométrage** : jamais inférieur au compteur, ni daté dans le futur ou avant le dernier relevé ;
   le chauffeur ne saisit que pour son véhicule affecté.
 - **Incidents** : le chauffeur signale sur son véhicule affecté et ne voit que ses incidents.
+
+## Exploitation
+
+### Logs
+
+L'API écrit ses logs avec pino : **une ligne JSON par événement** en production (sur la sortie
+standard, à collecter avec l'outil de l'hébergeur ou Better Stack, Grafana Loki, Datadog...),
+format lisible en développement. Chaque requête reçoit un identifiant, renvoyé dans l'en-tête
+`X-Request-Id` (ou repris de celui fourni par un reverse proxy) : il permet de retrouver les logs
+d'une erreur signalée. Les logs ne contiennent ni en-têtes (token, cookies), ni corps de requête
+(mots de passe), ni adresse IP. `/health` n'est pas journalisé.
+
+### Suivi des erreurs (Sentry)
+
+Optionnel : renseigner `SENTRY_DSN` (API, serveur web) et `NEXT_PUBLIC_SENTRY_DSN` (navigateur, au
+moment du build). Sont remontées les erreurs 500 de l'API, les échecs des tâches de fond
+(récapitulatif des alertes, purge des positions, emails de réinitialisation) et les erreurs du
+dashboard. Aucune donnée personnelle n'est envoyée (identité, cookies, en-têtes, corps et
+paramètres de requête sont exclus). Sans DSN, le SDK n'est même pas chargé dans le navigateur.
+
+### Sauvegardes
+
+`ops/backup-db.sh` crée une sauvegarde compressée (`pg_dump`, format custom), vérifie qu'elle est
+lisible, la copie éventuellement hors du serveur (`BACKUP_S3_URI`, CLI `aws`) et supprime celles de
+plus de `BACKUP_RETENTION_DAYS` jours (14 par défaut). À planifier chaque nuit :
+
+```bash
+# crontab -e
+30 2 * * * DATABASE_URL=postgresql://... BACKUP_DIR=/var/backups/teranga-fleet BACKUP_S3_URI=s3://bucket/sauvegardes /opt/teranga-fleet/ops/backup-db.sh >> /var/log/teranga-backup.log 2>&1
+```
+
+Restauration (API arrêtée ; une seule transaction, confirmation demandée) :
+
+```bash
+DATABASE_URL=postgresql://... ./ops/restore-db.sh /var/backups/teranga-fleet/teranga-fleet-20261014T023000Z.dump
+```
+
+Les fichiers joints (documents, photos d'incidents) ne sont pas dans la base : avec
+`STORAGE_DRIVER=s3`, activer le versioning du bucket ; en stockage local, sauvegarder `UPLOAD_DIR`.
+Une sauvegarde n'a de valeur que si sa restauration a été essayée : la tester régulièrement sur
+une base de recette.
+
+### Surveillance
+
+`GET /api/health` sur le dashboard web traverse toute la chaîne (serveur web, relais, API,
+PostgreSQL) : `200` si tout répond, `503` sinon. Le placer sous surveillance (UptimeRobot, Better
+Stack...) avec une alerte par email ou SMS. L'API seule répond sur `GET /health`.
 
 ## Tests
 

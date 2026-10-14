@@ -1,14 +1,20 @@
+// Sentry doit être initialisé avant le chargement des autres modules.
+import './instrument';
+
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { setupApp } from './app.setup';
 import type { Env } from './config/env.validation';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Les logs du démarrage sont gardés jusqu'à ce que le logger pino soit en place.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(PinoLogger));
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   const corsOrigins = config.get('CORS_ORIGINS', { infer: true });

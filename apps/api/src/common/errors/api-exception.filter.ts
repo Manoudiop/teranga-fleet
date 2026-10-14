@@ -9,6 +9,7 @@ import {
 import type { ApiErrorCode, ApiErrorResponse } from '@teranga-fleet/shared';
 import type { Response } from 'express';
 import { Prisma } from '../../generated/prisma/client';
+import { reportError } from '../report-error';
 
 const DEFAULT_CODES: Partial<Record<number, ApiErrorCode>> = {
   [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
@@ -44,9 +45,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<Response>();
     const body = this.toBody(exception);
-    if (body.statusCode >= 500) {
-      this.logger.error(exception instanceof Error ? exception.stack : String(exception));
-    }
+    if (body.statusCode >= 500) reportError(this.logger, 'Requête en erreur', exception);
     res.status(body.statusCode).json(body);
   }
 

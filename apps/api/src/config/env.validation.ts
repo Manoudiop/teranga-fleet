@@ -43,11 +43,16 @@ export interface Env {
   WEB_URL: string;
   /** Heure UTC (= heure de Dakar) de l'envoi du récapitulatif quotidien des alertes. */
   ALERT_DIGEST_HOUR: number;
+  /** Niveau des logs (pino). Par défaut : info, debug en développement, silent en test. */
+  LOG_LEVEL: (typeof LOG_LEVELS)[number];
+  /** Suivi des erreurs Sentry : désactivé si absent. */
+  SENTRY_DSN?: string;
 }
 
 const NODE_ENVS = ['development', 'test', 'production'] as const;
 const STORAGE_DRIVERS = ['local', 's3'] as const;
 const MAIL_DRIVERS = ['smtp', 'memory'] as const;
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
 function str(raw: Record<string, unknown>, key: string): string {
   const value = raw[key];
@@ -148,6 +153,17 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     );
   }
 
+  const logLevel =
+    str(raw, 'LOG_LEVEL') ||
+    (nodeEnv === 'test' ? 'silent' : nodeEnv === 'development' ? 'debug' : 'info');
+  if (!LOG_LEVELS.includes(logLevel as Env['LOG_LEVEL'])) {
+    errors.push(`LOG_LEVEL doit valoir ${LOG_LEVELS.join(', ')}`);
+  }
+  const sentryDsn = str(raw, 'SENTRY_DSN');
+  if (sentryDsn && !/^https:\/\/\S+@\S+\/\d+$/.test(sentryDsn)) {
+    errors.push('SENTRY_DSN doit être le DSN fourni par Sentry (https://clé@hôte/projet)');
+  }
+
   const env: Env = {
     NODE_ENV: nodeEnv as Env['NODE_ENV'],
     PORT: port,
@@ -176,6 +192,8 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     MAIL_FROM: mailFrom,
     WEB_URL: webUrl,
     ALERT_DIGEST_HOUR: int(raw, 'ALERT_DIGEST_HOUR', 7, 0, 23, errors),
+    LOG_LEVEL: logLevel as Env['LOG_LEVEL'],
+    SENTRY_DSN: sentryDsn || undefined,
   };
 
   if (errors.length > 0) {

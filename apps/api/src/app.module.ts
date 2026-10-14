@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { ConfigModule } from '@nestjs/config';
 import { AccountsModule } from './accounts/accounts.module';
 import { AdminModule } from './admin/admin.module';
@@ -9,6 +10,7 @@ import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { IncidentsModule } from './incidents/incidents.module';
 import { LocationsModule } from './locations/locations.module';
+import { LoggingModule } from './logging/logging.module';
 import { MailModule } from './mail/mail.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MileageModule } from './mileage/mileage.module';
@@ -21,11 +23,13 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
       validate: validateEnv,
     }),
+    LoggingModule,
     PrismaModule,
     StorageModule,
     MailModule,

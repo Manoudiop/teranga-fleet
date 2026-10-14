@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import type { CreateLocationsDto, TrackQueryDto } from './dto/location.dto';
 import { filterLocationPoints } from './location-rules';
+import { reportError } from '../common/report-error';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** Ancienneté maximale d'un point envoyé en différé par le téléphone. */
@@ -66,7 +67,7 @@ export class LocationsService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`${count} position(s) de plus de ${this.retentionDays} jours supprimée(s)`);
       return count;
     } catch (error) {
-      this.logger.error(`Purge des positions impossible : ${String(error)}`);
+      reportError(this.logger, 'Purge des positions', error);
       return 0;
     }
   }
